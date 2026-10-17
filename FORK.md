@@ -54,6 +54,19 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Preserve companion provisioning after bound redemption (2026-10-16)
+
+- **Problem:** account-bound invitations bypassed the normal OAuth handler's
+  provisioning of opted-in companion request systems.
+- **Change:** the existing background provisioning is shared by ordinary invites
+  and the request service. It runs only after a request completes, including
+  after recovery, and completion retries do not schedule it again. Companion
+  failures remain best effort and raw remote errors/bodies stay out of logs.
+- **Tests:** both redemption entry points, opt-in behavior, repeat/concurrent
+  completion, wrong accounts, failed setup/recovery, ordinary multi-server
+  invitations, and sanitized lookup/thread/adapter failures.
+- **Upstream:** not sent.
+
 ### Limit reconciliation to uncertain operations (2026-10-16)
 
 - **Problem:** a late recovery POST could reopen a completed request or change

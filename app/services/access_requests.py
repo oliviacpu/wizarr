@@ -290,7 +290,11 @@ def redeem(row: AccessRequest, account, token: str) -> str:
     db.session.commit()
     row = _get_request(row.id)
     try:
-        from app.services.media.plex import PlexClient, _invite_user
+        from app.services.media.plex import (
+            PlexClient,
+            _invite_user,
+            schedule_companion_provisioning,
+        )
 
         client = PlexClient(media_server=server)
         if row.redemption_stage != "shared":
@@ -359,6 +363,7 @@ def redeem(row: AccessRequest, account, token: str) -> str:
         row.redemption_stage = "complete"
         row.updated_at = datetime.now(UTC)
         db.session.commit()
+        schedule_companion_provisioning(token, server.id)
         from app.services.notifications import notify
 
         with suppress(Exception):

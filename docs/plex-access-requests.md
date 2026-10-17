@@ -31,6 +31,11 @@ continues through Wizarr's onboarding wizard. Pending and rejected requests
 never create a share. Disabling public requests stops new submissions; previously
 submitted requests can still check status and finish an approval.
 
+Successful redemption also refreshes any retained local user record and runs
+Wizarr's existing background provisioning for companion request systems that
+have opted in. Companion failures do not undo Plex access or completed status;
+check the companion separately if its account or watchlist settings are missing.
+
 There is one request per Plex account, including rejected and completed requests.
 A duplicate submission returns that authenticated account's existing request;
 it does not reset a rejection or create another invitation. Losing a private
@@ -106,7 +111,8 @@ Before using this with real requesters, verify with disposable Plex accounts:
    identifier and global library section IDs during recovery. Check interrupted
    sharing, acceptance and delayed resource visibility.
 5. A completed request reaches the expected Wizarr wizard and selected server's
-   links. Verify configured notification delivery independently.
+   links. Verify configured notification delivery and opted-in companion
+   provisioning independently.
 
 No live Plex accounts, deployment changes or release tags are required to run
 the automated suite.

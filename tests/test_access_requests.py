@@ -115,6 +115,29 @@ def plex(setup_requests, monkeypatch):
     )
 
 
+@pytest.fixture
+def companions(monkeypatch):
+    opted_in = Mock(return_value=True)
+    provision = Mock()
+    started = Mock()
+
+    def thread(*, target, args, daemon):
+        assert daemon
+        started(target, args)
+        return SimpleNamespace(start=lambda: target(*args))
+
+    monkeypatch.setattr(
+        "app.services.ombi_client.has_plex_provisioning_connections", opted_in
+    )
+    monkeypatch.setattr(
+        "app.services.ombi_client.provision_plex_user_on_connections", provision
+    )
+    monkeypatch.setattr(
+        "app.services.media.plex.threading", SimpleNamespace(Thread=thread)
+    )
+    return SimpleNamespace(opted_in=opted_in, provision=provision, started=started)
+
+
 def test_disabled_by_default_and_admin_opt_in(client, setup_requests):
     setting = Settings.query.filter_by(key="public_access_requests").one()
     db.session.delete(setting)
@@ -327,6 +350,93 @@ def test_redemption_refreshes_reused_user(
     else:
         assert user.expires is None
     plex.client._create_user_with_identity_linking.assert_not_called()
+
+
+@pytest.mark.parametrize("entry", ["request_page", "oauth_handler"])
+def test_request_redemption_provisions_opted_in_companions_once(
+    app, client, setup_requests, plex, companions, entry
+):
+    from app.services.media.plex import handle_oauth_token
+
+    row = approved(client, setup_requests)
+
+    def provision(_token, _server_id):
+        assert AccessRequest.query.one().status == "completed"
+
+    companions.provision.side_effect = provision
+    for _attempt in range(2):
+        if entry == "request_page":
+            assert (
+                client.post(
+                    "/request-access/redeem", data={"oauth_token": "requester-secret"}
+                ).status_code
+                == 200
+            )
+        else:
+            handle_oauth_token(app, "requester-secret", row.invitation.code)
+    companions.opted_in.assert_called_once_with(setup_requests.server.id)
+    companions.provision.assert_called_once_with(
+        "requester-secret", setup_requests.server.id
+    )
+    companions.started.assert_called_once()
+    plex.client.invite_friend.assert_called_once()
+
+
+def test_request_redemption_skips_companions_without_opt_in(
+    client, setup_requests, plex, companions
+):
+    companions.opted_in.return_value = False
+    service.redeem(approved(client, setup_requests), plex.account, "requester-secret")
+    companions.started.assert_not_called()
+    companions.provision.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", ["lookup", "thread", "provision"])
+def test_companion_failure_does_not_reopen_completed_request_or_log_secrets(
+    client, setup_requests, plex, companions, monkeypatch, caplog, failure
+):
+    error = RuntimeError("owner-secret requester-secret")
+    if failure == "lookup":
+        companions.opted_in.side_effect = error
+    elif failure == "thread":
+        monkeypatch.setattr(
+            "app.services.media.plex.threading.Thread", Mock(side_effect=error)
+        )
+    else:
+        companions.provision.side_effect = error
+    row = approved(client, setup_requests)
+
+    response = client.post(
+        "/request-access/redeem", data={"oauth_token": "requester-secret"}
+    )
+
+    assert response.status_code == 200
+    assert row.status == "completed" and row.invitation.used
+    assert "secret" not in response.text + caplog.text
+    assert "Companion provisioning failed" in caplog.text
+    service.redeem(row, plex.account, "requester-secret")
+    companions.opted_in.assert_called_once()
+
+
+def test_companions_wait_for_intended_account_and_successful_recovery(
+    client, setup_requests, plex, companions
+):
+    row = approved(client, setup_requests)
+    with pytest.raises(ValueError, match="approved"):
+        service.redeem(row, SimpleNamespace(id=99), "wrong-secret")
+    plex.account.acceptInvite.side_effect = RuntimeError("unavailable")
+    with pytest.raises(ValueError, match="review and recover"):
+        service.redeem(row, plex.account, "requester-secret")
+    companions.opted_in.assert_not_called()
+    companions.provision.assert_not_called()
+
+    service.recover(row.id)
+    plex.resources.append(SimpleNamespace(clientIdentifier="server-machine"))
+    service.redeem(row, plex.account, "requester-secret")
+    companions.provision.assert_called_once_with(
+        "requester-secret", setup_requests.server.id
+    )
+    plex.client.invite_friend.assert_called_once()
 
 
 def test_wrong_account_and_legacy_paths_cannot_redeem(client, setup_requests, plex):
@@ -557,7 +667,7 @@ def test_concurrent_duplicate_submission(app, setup_requests):
 
 
 def test_concurrent_redemption_has_one_remote_operation(
-    app, client, setup_requests, plex
+    app, client, setup_requests, plex, companions
 ):
     row = approved(client, setup_requests)
     request_id = row.id
@@ -578,6 +688,9 @@ def test_concurrent_redemption_has_one_remote_operation(
     db.session.expire_all()
     assert AccessRequest.query.one().status == "completed"
     plex.client.invite_friend.assert_called_once()
+    companions.provision.assert_called_once_with(
+        "requester-secret", setup_requests.server.id
+    )
     assert User.query.count() == Invitation.query.count() == 1
 
 

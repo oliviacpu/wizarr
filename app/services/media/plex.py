@@ -1670,8 +1670,25 @@ def _provision_companions(app, token: str, server_id: int) -> None:
             from app.services.ombi_client import provision_plex_user_on_connections
 
             provision_plex_user_on_connections(token, server_id)
-        except Exception as exc:
-            logging.warning("Companion provisioning failed: %s", exc)
+        except Exception:
+            logging.warning("Companion provisioning failed")
+
+
+def schedule_companion_provisioning(token: str, server_id: int) -> None:
+    """Best-effort provisioning shared by ordinary and account-bound invitations."""
+    try:
+        from flask import current_app
+
+        from app.services.ombi_client import has_plex_provisioning_connections
+
+        if has_plex_provisioning_connections(server_id):
+            threading.Thread(
+                target=_provision_companions,
+                args=(current_app._get_current_object(), token, server_id),  # type: ignore
+                daemon=True,
+            ).start()
+    except Exception:
+        logging.warning("Companion provisioning failed")
 
 
 def handle_oauth_token(app, token: str, code: str) -> None:
@@ -1749,19 +1766,7 @@ def handle_oauth_token(app, token: str, code: str) -> None:
             # Off the request thread so a slow or unreachable companion cannot
             # hold up the invite, and best effort throughout: a companion
             # failing must never break an invite the user just accepted.
-            try:
-                from app.services.ombi_client import (
-                    has_plex_provisioning_connections,
-                )
-
-                if has_plex_provisioning_connections(server_id):
-                    threading.Thread(
-                        target=_provision_companions,
-                        args=(current_app._get_current_object(), token, server_id),  # type: ignore
-                        daemon=True,
-                    ).start()
-            except Exception as exc:
-                logging.warning("Companion provisioning failed: %s", exc)
+            schedule_companion_provisioning(token, server_id)
 
             # Mark invitation as used for this server
             if inv:
