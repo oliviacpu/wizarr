@@ -44,6 +44,17 @@ The fork workflow requires no upstream publishing credentials.
 
 ## Changes
 
+### Bound streamed request bodies (2026-10-16)
+
+- **Problem:** a chunked public POST may omit Content-Length, so a header-only
+  size check cannot bound form parsing.
+- **Change:** apply Flask's per-request 8 KiB body limit before reading the form,
+  including requests without a length header. Infrastructure errors during
+  provisioning also return a generic response without exception contents.
+- **Tests:** streamed oversized-body rejection with a bounded stream read, plus
+  sanitized unexpected provisioning failures in `tests/test_access_requests.py`.
+- **Upstream:** not sent.
+
 ### Public Plex access requests with manual approval (2026-10-16)
 
 - **Problem:** a visitor needs a way to request access before an administrator

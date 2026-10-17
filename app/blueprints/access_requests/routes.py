@@ -46,6 +46,7 @@ class OAuthForm(FlaskForm):
 
 @access_requests_bp.before_request
 def limit_body():
+    request.max_content_length = 8192
     if request.content_length and request.content_length > 8192:
         abort(413)
 

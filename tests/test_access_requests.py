@@ -600,3 +600,19 @@ def test_unexpected_provisioning_failure_is_sanitized(
     )
     assert response.status_code == 503
     assert "secret" not in response.text + caplog.text
+
+
+def test_streamed_body_cannot_bypass_request_size_limit(client, setup_requests):
+    from io import BytesIO
+
+    stream = BytesIO(b"identifier=" + b"a" * 9000)
+    response = client.open(
+        "/request-access",
+        method="POST",
+        content_type="application/x-www-form-urlencoded",
+        input_stream=stream,
+        environ_overrides={"CONTENT_LENGTH": "", "wsgi.input_terminated": True},
+    )
+    assert response.status_code in {400, 413}
+    assert stream.tell() <= 8192
+    assert AccessRequest.query.count() == 0
