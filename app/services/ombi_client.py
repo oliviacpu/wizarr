@@ -126,16 +126,14 @@ def provision_plex_user_on_connections(auth_token: str, server_id: int) -> list[
         try:
             client = get_companion_client(connection.connection_type)()
             result = client.provision_plex_user(auth_token, connection)
-        except ValueError as exc:
-            logging.error(
-                "Unknown connection type %s: %s", connection.connection_type, exc
-            )
+        except ValueError:
+            logging.error("Unknown connection type %s", connection.connection_type)
             result = {
                 "status": "error",
                 "message": f"Unknown connection type: {connection.connection_type}",
             }
         except Exception as exc:
-            logging.error("Provisioning %s failed: %s", connection.connection_type, exc)
+            logging.error("Provisioning %s failed", connection.connection_type)
             result = {"status": "error", "message": str(exc)}
 
         results.append(

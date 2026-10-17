@@ -1,3 +1,5 @@
+from unittest.mock import Mock, call
+
 from app.extensions import db
 from app.models import Invitation, MediaServer, User, invitation_servers
 from app.services.media import plex as plex_service
@@ -66,6 +68,7 @@ def test_plex_oauth_invites_every_plex_server_on_multi_server_invite(
     session.commit()
 
     invited_server_ids = []
+    provision = Mock()
 
     def fake_invite_user(email, code, user_id, server):
         invited_server_ids.append(server.id)
@@ -76,12 +79,17 @@ def test_plex_oauth_invites_every_plex_server_on_multi_server_invite(
     monkeypatch.setattr(plex_service, "_post_join_setup", lambda *args: None)
     monkeypatch.setattr(plex_service.threading, "Thread", ImmediateThread)
     monkeypatch.setattr(plex_service, "notify", lambda *args, **kwargs: None)
+    monkeypatch.setattr(plex_service, "schedule_companion_provisioning", provision)
 
     plex_service.handle_oauth_token(app, "oauth-token", invitation.code)
 
     users = User.query.filter_by(email="viewer@example.com").all()
     assert {user.server_id for user in users} == {plex_primary.id, plex_secondary.id}
     assert invited_server_ids == [plex_primary.id, plex_secondary.id]
+    assert provision.call_args_list == [
+        call("oauth-token", plex_primary.id),
+        call("oauth-token", plex_secondary.id),
+    ]
 
     usage_rows = session.execute(
         invitation_servers.select().where(

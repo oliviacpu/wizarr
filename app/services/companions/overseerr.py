@@ -43,9 +43,9 @@ def _open_session(
 
     try:
         resp = session.get(f"{base_url}/api/v1/status", timeout=10)
-    except Exception as exc:
+    except Exception:
         # Not fatal on its own: let the POST report the real failure.
-        logging.debug("Could not prime Seerr CSRF cookie: %s", exc)
+        logging.debug("Could not prime Seerr CSRF cookie")
         return session, headers, None
 
     token = session.cookies.get("XSRF-TOKEN")
@@ -376,16 +376,14 @@ class OverseerrClient(CompanionClient):
             except Exception as exc:
                 last_message = str(exc)
                 logging.warning(
-                    "Seerr provisioning attempt %s/%s failed: %s",
+                    "Seerr provisioning attempt %s/%s failed",
                     attempt,
                     total,
-                    exc,
                 )
             else:
                 if resp.ok:
                     logging.info(
-                        "Seerr provisioned Plex user via %s on attempt %s",
-                        url,
+                        "Seerr provisioned Plex user on attempt %s",
                         attempt,
                     )
                     if not connection.enable_watchlist_sync:
@@ -427,9 +425,8 @@ class OverseerrClient(CompanionClient):
                     if problem:
                         logging.warning(
                             "Seerr user %s created, but watchlist syncing "
-                            "could not be turned on: %s",
+                            "could not be turned on",
                             user_id,
-                            problem,
                         )
                         return {
                             "status": "success",
@@ -457,9 +454,8 @@ class OverseerrClient(CompanionClient):
                     logging.warning(
                         "Seerr rejected the request as CSRF-invalid. Its CSRF "
                         "cookies are Secure, so an http:// connection URL can "
-                        "never satisfy them - configure %s over https, or turn "
-                        "off CSRF protection in Seerr.",
-                        base_url,
+                        "never satisfy them - configure Seerr over https, or turn "
+                        "off CSRF protection in Seerr."
                     )
                     break
 
@@ -477,5 +473,5 @@ class OverseerrClient(CompanionClient):
             if attempt <= len(_PROVISION_BACKOFF_SECONDS):
                 time.sleep(_PROVISION_BACKOFF_SECONDS[attempt - 1])
 
-        logging.warning("Seerr provisioning gave up: %s", last_message)
+        logging.warning("Seerr provisioning gave up")
         return {"status": "error", "message": last_message}

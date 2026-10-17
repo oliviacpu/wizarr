@@ -8,6 +8,7 @@ on:
 
 jobs:
   compile:
+    if: github.repository == 'wizarrrr/wizarr'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

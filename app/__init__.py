@@ -57,6 +57,15 @@ def create_app(config_object=DevelopmentConfig):
     for bp in all_blueprints:
         app.register_blueprint(bp)
 
+    from .blueprints.access_requests.routes import request_limiter
+
+    # Flask-Limiter reads this shared key even for separate instances. Keep the
+    # existing limiter's setting while making the public request limits mandatory.
+    original_limit_setting = app.config.get("RATELIMIT_ENABLED", False)
+    app.config["RATELIMIT_ENABLED"] = True
+    request_limiter.init_app(app)
+    app.config["RATELIMIT_ENABLED"] = original_limit_setting
+
     # Step 5: Setup context processors and filters
     if show_startup:
         logger.step("Configuring request processing", "⚙️")

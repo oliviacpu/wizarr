@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Access request") }}{% endblock %}
+{% block main %}
+  <main class="max-w-xl mx-auto p-8 space-y-4 dark:text-white">
+    <h1 class="text-xl font-semibold">{{ _("Decision not completed") }}</h1>
+    <p role="alert">{{ error }}</p>
+    <a href="{{ url_for('admin.dashboard') }}#access-requests"
+       class="text-primary underline">{{ _("Return to access requests") }}</a>
+  </main>
+{% endblock %}

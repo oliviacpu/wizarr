@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'wizarrrr/wizarr'
     runs-on: ubuntu-24.04
     env:
       GH_TOKEN: ${{ secrets.SPONSORS_TOKEN }}

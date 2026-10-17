@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Your access request") }}{% endblock %}
+{% block main %}
+  <main data-request-id="{{ row.id if row else '' }}"
+        class="min-h-screen bg-gray-50 dark:bg-gray-900 px-6 py-12 text-gray-900 dark:text-white">
+    <div class="max-w-md mx-auto p-6 space-y-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+      <h1 class="text-2xl font-semibold">{{ _("Your access request") }}</h1>
+      {% if row %}
+        <p>{{ _("Plex account") }}: {{ row.plex_username }}</p>
+        {% if row.status == "pending" %}
+          <h2 class="text-xl font-medium">{{ _("Waiting for review") }}</h2>
+          <p>{{ _("Your request is saved. No access has been granted. Check this page for a decision.") }}</p>
+        {% elif row.status == "rejected" %}
+          <h2 class="text-xl font-medium">{{ _("Request declined") }}</h2>
+          <p>{{ _("The administrator declined this request. This request grants no access.") }}</p>
+        {% elif row.status in ["approved", "completed"] and row.invitation %}
+          <h2 class="text-xl font-medium">{{ _("Request approved") if row.status == 'approved' else _("Access is ready") }}</h2>
+          <p>{{ _("Sign in with the approved Plex account to continue to onboarding.") }}</p>
+          <form data-oauth-mode="redeem"
+                action="{{ url_for('access_requests.redeem') }}"
+                method="post">
+            {{ form.hidden_tag() }}
+            <button type="submit"
+                    class="w-full rounded-lg bg-primary text-white px-4 py-3">{{ _("Continue with Plex") }}</button>
+          </form>
+        {% else %}
+          <h2 class="text-xl font-medium">{{ _("Setup needs confirmation") }}</h2>
+          <p>{{ _("Plex setup is running or needs administrator review. Partial access may already exist; the administrator can reconcile it without creating another invitation.") }}</p>
+        {% endif %}
+        <a href="{{ url_for('access_requests.status') }}"
+           class="block text-primary underline">{{ _("Refresh status") }}</a>
+      {% else %}
+        <p>{{ _("Open your private status link, or sign in with Plex to find your request.") }}</p>
+      {% endif %}
+      <p id="private-link-container" hidden>
+        <a id="private-link" class="text-primary underline">{{ _("Save this private status link") }}</a>
+        {{ _("Anyone with this link can read your status. Plex sign-in is still required to receive access.") }}
+      </p>
+      <form data-oauth-mode="restore"
+            action="{{ url_for('access_requests.restore') }}"
+            method="post">
+        {{ form.hidden_tag() }}
+        <button type="submit" class="text-primary underline">{{ _("Find a request with Plex sign-in") }}</button>
+      </form>
+      <p id="request-error"
+         role="alert"
+         class="text-red-600 dark:text-red-400"></p>
+      <noscript>{{ _("JavaScript is required for Plex sign-in and private links.") }}</noscript>
+    </div>
+  </main>
+  {% include "access_requests/scripts.html" %}
+{% endblock %}

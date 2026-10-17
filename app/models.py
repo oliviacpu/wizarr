@@ -81,6 +81,7 @@ class Invitation(db.Model):
     __tablename__ = "invitation"
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String, nullable=False, index=True)
+    plex_account_id = db.Column(db.String(32), nullable=True)
     used = db.Column(db.Boolean, default=False, nullable=False)
     used_at = db.Column(db.DateTime, nullable=True)
     created = db.Column(db.DateTime, default=lambda: datetime.now(UTC), nullable=False)
@@ -167,6 +168,31 @@ class Invitation(db.Model):
     def has_user(self, user):
         """Check if a specific user has used this invitation."""
         return user in list(self.users)  # type: ignore
+
+
+class AccessRequest(db.Model):
+    __tablename__ = "access_request"
+
+    id = db.Column(db.Integer, primary_key=True)
+    entered_identifier = db.Column(db.String(254), nullable=False)
+    display_name = db.Column(db.String(100), nullable=False, default="")
+    plex_account_id = db.Column(db.String(32), nullable=False, unique=True)
+    plex_username = db.Column(db.String(254), nullable=False)
+    plex_email = db.Column(db.String(254), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True)
+    status = db.Column(db.String(24), nullable=False, default="pending", index=True)
+    invitation_id = db.Column(
+        db.Integer, db.ForeignKey("invitation.id", ondelete="SET NULL"), unique=True
+    )
+    invitation = db.relationship("Invitation", passive_deletes=True)
+    approved_scope = db.Column(db.JSON, nullable=True)
+    redemption_stage = db.Column(db.String(24), nullable=True)
+    created_at = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(UTC)
+    )
 
 
 class Settings(db.Model):

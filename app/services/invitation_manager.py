@@ -110,6 +110,12 @@ class InvitationManager:
         inv = Invitation.query.filter_by(code=code).first()
         if not inv:
             return False, None, ["Invalid invitation code"]
+        if inv.plex_account_id:
+            return (
+                False,
+                None,
+                ["Use the private request status page to redeem this invitation."],
+            )
 
         # Determine servers to process
         servers_to_process = (

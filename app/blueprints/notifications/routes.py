@@ -36,6 +36,8 @@ def create():
     if request.method == "POST":
         # Collect selected events from checkboxes
         events = []
+        if request.form.get("event_access_request"):
+            events.append("access_request")
         if request.form.get("event_user_joined"):
             events.append("user_joined")
         if request.form.get("event_update_available"):
@@ -144,6 +146,8 @@ def edit(agent_id):
     if request.method == "POST":
         # Collect selected events from checkboxes
         events = []
+        if request.form.get("event_access_request"):
+            events.append("access_request")
         if request.form.get("event_user_joined"):
             events.append("user_joined")
         if request.form.get("event_update_available"):

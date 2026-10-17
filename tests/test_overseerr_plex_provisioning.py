@@ -10,6 +10,8 @@ which is everything that first sign-in would have supplied.
 from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
+import pytest
+
 from app.services.companions import get_companion_client
 from app.services.companions.overseerr import (
     _PROVISION_BACKOFF_SECONDS,
@@ -404,3 +406,45 @@ def test_watchlist_failures_are_reported_not_raised():
 
     assert result["status"] == "success"
     assert "connection refused" in result["message"]
+
+
+@pytest.mark.parametrize("failure", ["session", "sign_in", "response", "watchlist"])
+def test_provisioning_does_not_log_remote_errors_or_response_bodies(caplog, failure):
+    caplog.set_level("DEBUG")
+    secret = "requester-secret csrf-secret"
+    with _seerr() as (seerr, _):
+        seerr.post.return_value = _resp(500, secret)
+        if failure == "session":
+            seerr.get.side_effect = OSError(secret)
+        elif failure == "sign_in":
+            seerr.post.side_effect = OSError(secret)
+        elif failure == "watchlist":
+            seerr.post.side_effect = [_resp(200, json={"id": 42}), _resp(500, secret)]
+            seerr.get.return_value = _resp(200, json={"locale": "en"})
+
+        result = OverseerrClient().provision_plex_user(
+            "requester-secret", _connection(watchlist_sync=True)
+        )
+
+    assert result["status"] == ("success" if failure == "watchlist" else "error")
+    assert "Seerr" in caplog.text and "secret" not in caplog.text
+
+
+@pytest.mark.parametrize("error_type", [ValueError, RuntimeError])
+def test_provisioning_dispatch_does_not_log_exception_credentials(
+    app, caplog, error_type
+):
+    with (
+        app.app_context(),
+        patch("app.services.ombi_client.Connection") as connection_model,
+        patch("app.services.ombi_client.get_companion_client") as client_type,
+    ):
+        connection_model.query.filter_by.return_value.all.return_value = [_connection()]
+        client_type.return_value.return_value.provision_plex_user.side_effect = (
+            error_type("requester-secret")
+        )
+
+        results = provision_plex_user_on_connections("requester-secret", server_id=7)
+
+    assert results[0]["status"] == "error"
+    assert caplog.text and "secret" not in caplog.text

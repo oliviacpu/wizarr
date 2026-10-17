@@ -90,6 +90,77 @@ def test_full_migration_upgrade(migration_app, temp_db):
             )
 
 
+def test_access_requests_upgrade_and_downgrade_preserve_invitations(
+    migration_app, temp_db
+):
+    with migration_app.app_context():
+        upgrade(revision="20261011_ldap_user_sync_filter")
+        engine = create_engine(temp_db)
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO invitation (id, code, used, created) VALUES (1, 'MIGRATETST', 0, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO media_server (id, name, server_type, url, verified, created_at) VALUES (1, 'Example', 'plex', 'http://plex.example.test', 1, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO invitation_server (invite_id, server_id, used) VALUES (1, 1, 0)"
+                )
+            )
+        upgrade()
+        with engine.begin() as connection:
+            assert connection.execute(
+                text("SELECT code, plex_account_id FROM invitation WHERE id=1")
+            ).one() == ("MIGRATETST", None)
+            assert (
+                connection.execute(text("SELECT count(*) FROM access_request")).scalar()
+                == 0
+            )
+            assert (
+                connection.execute(
+                    text(
+                        "SELECT count(*) FROM settings WHERE key='public_access_requests'"
+                    )
+                ).scalar()
+                == 0
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO invitation (id, code, used, unlimited, created, plex_account_id) VALUES (2, 'BOUNDMIGRT', 0, 1, CURRENT_TIMESTAMP, '42')"
+                )
+            )
+        downgrade(revision="20261011_ldap_user_sync_filter")
+        with engine.begin() as connection:
+            assert (
+                connection.execute(
+                    text("SELECT code FROM invitation WHERE id=1")
+                ).scalar()
+                == "MIGRATETST"
+            )
+            assert (
+                connection.execute(
+                    text("SELECT count(*) FROM invitation_server WHERE invite_id=1")
+                ).scalar()
+                == 1
+            )
+            assert connection.execute(
+                text(
+                    "SELECT used, unlimited, expires IS NOT NULL FROM invitation WHERE id=2"
+                )
+            ).one() == (1, 0, 1)
+            assert connection.execute(
+                text("SELECT used, expires FROM invitation WHERE id=1")
+            ).one() == (0, None)
+        upgrade()
+        with engine.begin() as connection:
+            assert connection.execute(text("PRAGMA foreign_key_check")).all() == []
+
+
 def test_expired_user_event_migration_repairs_existing_data(migration_app, temp_db):
     """Test duplicate removal, disabled-state repair, and the unique index."""
     with migration_app.app_context():

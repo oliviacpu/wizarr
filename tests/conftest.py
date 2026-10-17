@@ -81,6 +81,7 @@ def session(app):
     before and after the test runs.
     """
     from app.models import (
+        AccessRequest,
         ActivitySession,
         AdminAccount,
         ApiKey,
@@ -103,6 +104,7 @@ def session(app):
         db.session.execute(db.text("DELETE FROM historical_import_job"))
         db.session.query(ActivitySession).delete()
         db.session.query(ExpiredUser).delete()
+        db.session.query(AccessRequest).delete()
         # Junction tables
         db.session.execute(db.text("DELETE FROM wizard_bundle_step"))
         db.session.execute(db.text("DELETE FROM wizard_bundle"))
@@ -132,6 +134,7 @@ def session(app):
         db.session.execute(db.text("DELETE FROM historical_import_job"))
         db.session.query(ActivitySession).delete()
         db.session.query(ExpiredUser).delete()
+        db.session.query(AccessRequest).delete()
         # Junction tables
         db.session.execute(db.text("DELETE FROM wizard_bundle_step"))
         db.session.execute(db.text("DELETE FROM wizard_bundle"))

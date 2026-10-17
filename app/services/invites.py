@@ -65,7 +65,7 @@ def _get_form_list(form: Any, key: str) -> list[str]:
     return []
 
 
-def create_invite(form: Any) -> Invitation:
+def create_invite(form: Any, *, commit: bool = True) -> Invitation:
     """Takes a WTForms or dict-like `form` with the same keys as your old version."""
     # generate or validate provided code
     code = (form.get("code") or _generate_code()).strip().upper()
@@ -203,7 +203,8 @@ def create_invite(form: Any) -> Invitation:
     # Wire up LDAP user creation flag
     invite.create_ldap_user = bool(form.get("create_ldap_user"))
 
-    db.session.commit()
+    if commit:
+        db.session.commit()
     return invite
 
 
@@ -241,7 +242,11 @@ def find_joined_user(
 
 
 def mark_server_used(
-    inv: Invitation, server_id: int, user: "User | None" = None
+    inv: Invitation,
+    server_id: int,
+    user: "User | None" = None,
+    *,
+    log_details: bool = True,
 ) -> None:
     """Mark the invitation as used for a specific server.
 
@@ -293,7 +298,7 @@ def mark_server_used(
             )
 
         user = User.query.filter_by(code=inv.code, server_id=server_id).first()
-    else:
+    elif log_details:
         logging.info(
             f"Using provided user {user.username} for invitation {inv.code} on server {server_id}"
         )
@@ -320,9 +325,10 @@ def mark_server_used(
                     server_id=server_id,
                 )
             )
-            logging.info(
-                f"Successfully recorded usage of invitation {inv.code} by user {user.username} on server {server_id}"
-            )
+            if log_details:
+                logging.info(
+                    f"Successfully recorded usage of invitation {inv.code} by user {user.username} on server {server_id}"
+                )
 
         # Maintain backward compatibility: set used_by_id to the first user if not set
         if not inv.used_by_id:
