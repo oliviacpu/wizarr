@@ -435,3 +435,90 @@ def test_cancelled_sign_in_ignores_late_results(app, browser, request_site, resu
         assert AccessRequest.query.count() == User.query.count() == 0
     request_site.plex.invite_friend.assert_not_called()
     context.close()
+
+
+@pytest.mark.parametrize("width", [1280, 390])
+def test_plex_permissions_hide_retired_options(app, browser, request_site, width):
+    with app.app_context():
+        server = MediaServer.query.one()
+        server_id = server.id
+        server.allow_downloads = True
+        server.allow_live_tv = True
+        server.allow_mobile_uploads = True
+        user = User(
+            username="example-viewer",
+            email="viewer@example.test",
+            token="test-token",
+            code="EXAMPLE",
+            server_id=server_id,
+            allow_live_tv=True,
+            allow_camera_upload=True,
+        )
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+    context = browser.new_context(viewport={"width": width, "height": 900})
+    page = context.new_page()
+    page.goto(request_site.url + "/login?next=%2Fsettings")
+    page.locator('[name="username"]').fill("reviewer")
+    page.locator('[name="password"]').fill("test-review-password")
+    page.locator("#password-login").click()
+    page.wait_for_url(request_site.url + "/settings")
+    for endpoint in ["/settings/servers/create", f"/settings/servers/{server_id}/edit"]:
+        # Use the real admin shell and HTMX, including execution of the modal script.
+        page.goto(request_site.url + "/settings")
+        page.locator('button[hx-get="/settings/servers"]').click()
+        page.locator(f'button[hx-get="{endpoint}"]').click()
+        modal = page.locator("#create-server-modal")
+        expect(
+            modal.get_by_text(
+                "Plex's Downloads subscription requirements still apply.", exact=False
+            )
+        ).to_be_visible()
+        expect(modal.get_by_text("Allow Live TV", exact=True)).to_be_hidden()
+        expect(modal.get_by_text("Allow Mobile Uploads", exact=True)).to_be_hidden()
+        expect(modal.locator('[name="allow_live_tv"]')).to_be_disabled()
+        expect(modal.locator('[name="allow_mobile_uploads"]')).to_be_disabled()
+        if endpoint.endswith("/edit"):
+            expect(modal.locator('[name="allow_downloads"]')).to_be_checked()
+        modal.locator("#server_type").select_option("emby")
+        expect(modal.get_by_text("Allow Live TV", exact=True)).to_be_visible()
+        expect(modal.get_by_text("Allow Mobile Uploads", exact=True)).to_be_visible()
+        expect(modal.locator('[name="allow_live_tv"]')).to_be_enabled()
+        expect(modal.locator('[name="allow_mobile_uploads"]')).to_be_enabled()
+        for name, label in [
+            ("allow_live_tv", "Allow Live TV"),
+            ("allow_mobile_uploads", "Allow Mobile Uploads"),
+        ]:
+            if not modal.locator(f'[name="{name}"]').is_checked():
+                modal.get_by_text(label, exact=True).click()
+        modal.locator("#server_type").select_option("plex")
+        submitted = modal.locator("form").evaluate(
+            "form => [...new FormData(form).keys()]"
+        )
+        assert "allow_live_tv" not in submitted
+        assert "allow_mobile_uploads" not in submitted
+        expect(modal.get_by_text("Allow Live TV", exact=True)).to_be_hidden()
+        expect(modal.get_by_text("Allow Mobile Uploads", exact=True)).to_be_hidden()
+    invite = context.request.get(
+        request_site.url + "/invite", headers={"HX-Request": "true"}
+    )
+    assert invite.status == 200
+    assert 'name="allow_live_tv"' not in invite.text()
+    assert 'name="allow_mobile_uploads"' not in invite.text()
+    assert "Leave off for ordinary library sharing" in invite.text()
+    details = context.request.get(request_site.url + f"/user/{user_id}")
+    assert details.status == 200
+    assert "Toggle live TV permission" not in details.text()
+    assert "Toggle camera upload permission" not in details.text()
+    assert "Allow offline copies of shared media" in details.text()
+    summary = context.request.get(request_site.url + f"/user/{user_id}/details")
+    assert summary.status == 200
+    assert "Camera Upload" not in summary.text()
+    assert "Live TV" not in summary.text()
+    with app.app_context():
+        db.session.expire_all()
+        # Viewing the new UI does not rewrite existing stored permissions.
+        assert db.session.get(MediaServer, server_id).allow_live_tv is True
+        assert db.session.get(User, user_id).allow_camera_upload is True
+    context.close()

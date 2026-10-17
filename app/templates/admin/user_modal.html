@@ -1,3 +1,4 @@
+{% import "_partials/plex_permission_help.html" as plex_help %}
 <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all w-full max-w-2xl dark:bg-gray-800"
      role="dialog"
      aria-modal="true"
@@ -109,15 +110,21 @@
               <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4">{{ _("Permission Management") }}</h3>
               <!-- Permission Toggles -->
               <div class="space-y-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-4"
-                   x-data="{ downloading: {{ (related_user.allow_downloads if related_user.allow_downloads is not none else false)|tojson }}, liveTv: {{ (related_user.allow_live_tv if related_user.allow_live_tv is not none else false)|tojson }}, cameraUpload: {{ (related_user.allow_camera_upload if related_user.allow_camera_upload is not none else false)|tojson }}, updating: { downloads: false, liveTv: false, camera: false }, togglePermission(type, formRef) { const originalValue = this[type]; this.updating[type === 'downloading' ? 'downloads' : (type === 'liveTv' ? 'liveTv' : 'camera')] = true; this[type] = !this[type]; this.$nextTick(() => htmx.trigger(formRef, 'submit')); }, showError(message) { alert('Error: ' + message); } }">
+                   x-data="{ downloading: {{ (related_user.allow_downloads if related_user.allow_downloads is not none else false)|tojson }}, liveTv: {{ (related_user.allow_live_tv if related_user.allow_live_tv is not none else false)|tojson }}, updating: { downloads: false, liveTv: false }, togglePermission(type, formRef) { const originalValue = this[type]; this.updating[type === 'downloading' ? 'downloads' : 'liveTv'] = true; this[type] = !this[type]; this.$nextTick(() => htmx.trigger(formRef, 'submit')); }, showError(message) { alert('Error: ' + message); } }">
                 <!-- Downloads Permission (All servers support this) -->
                 <div class="flex items-center justify-between">
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ _("Allow Downloads") }}</label>
+                  <div class="mr-4">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
+                    {% if related_user.server.server_type == "plex" %}
+                      {{ plex_help.downloads("downloads-help-" ~ related_user.id) }}
+                    {% endif %}
+                  </div>
                   <button type="button"
                           @click="togglePermission('downloading', $refs.downloadForm)"
                           :disabled="updating.downloads"
                           :class="[ downloading ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700', updating.downloads ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' ]"
                           class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                          aria-describedby="downloads-help-{{ related_user.id }}"
                           aria-label="{{ _('Toggle downloads permission') }}">
                     <span :class="downloading ? 'translate-x-5' : 'translate-x-0'"
                           class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
@@ -134,8 +141,8 @@
                     <input type="hidden" name="enabled" :value="downloading ? 'true' : 'false'">
                   </form>
                 </div>
-                <!-- Live TV Permission (Plex, Jellyfin, Emby only) -->
-                {% if related_user.server and related_user.server.server_type in ["plex", "jellyfin", "emby"] %}
+                <!-- Live TV Permission (Jellyfin and Emby only) -->
+                {% if related_user.server and related_user.server.server_type in ["jellyfin", "emby"] %}
                   <div class="flex items-center justify-between">
                     <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ _("Allow Live TV") }}</label>
                     <button type="button"
@@ -157,32 +164,6 @@
                           class="hidden">
                       <input type="hidden" name="permission_type" value="allow_live_tv">
                       <input type="hidden" name="enabled" :value="liveTv ? 'true' : 'false'">
-                    </form>
-                  </div>
-                {% endif %}
-                <!-- Camera Upload Permission (Plex only) -->
-                {% if related_user.server and related_user.server.server_type == "plex" %}
-                  <div class="flex items-center justify-between">
-                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ _("Allow Camera Upload") }}</label>
-                    <button type="button"
-                            @click="togglePermission('cameraUpload', $refs.cameraForm)"
-                            :disabled="updating.camera"
-                            :class="[ cameraUpload ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700', updating.camera ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer' ]"
-                            class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-                            aria-label="{{ _('Toggle camera upload permission') }}">
-                      <span :class="cameraUpload ? 'translate-x-5' : 'translate-x-0'"
-                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
-                    </button>
-                    <form x-ref="cameraForm"
-                          method="post"
-                          action="{{ url_for('admin.update_user_permissions', db_id=related_user.id) }}"
-                          hx-post="{{ url_for('admin.update_user_permissions', db_id=related_user.id) }}"
-                          hx-swap="none"
-                          @htmx:after-request="updating.camera = false"
-                          @htmx:response-error="cameraUpload = !cameraUpload; updating.camera = false; showError($event.detail.xhr.responseText || 'Failed to update permission')"
-                          class="hidden">
-                      <input type="hidden" name="permission_type" value="allow_camera_upload">
-                      <input type="hidden" name="enabled" :value="cameraUpload ? 'true' : 'false'">
                     </form>
                   </div>
                 {% endif %}

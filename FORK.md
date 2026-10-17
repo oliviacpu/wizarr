@@ -54,6 +54,20 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Remove obsolete Plex controls and explain sharing permissions (2026-10-17)
+
+- **Problem:** Plex Camera Upload was retired, and the inherited Live TV switch
+  wrote the legacy `allowChannels` permission rather than modern tuner access.
+- **Change:** remove both Plex controls from server, invitation and user forms;
+  explain Downloads and Plex Home. Keep supported Jellyfin/Emby options and
+  disable hidden controls when changing server types. Legacy database/API fields
+  remain compatible, with no migration or changes to existing Plex shares.
+- **Checks:** desktop/mobile browser coverage of create/edit forms, switching
+  server types with checked values, invitation/user rendering and saved values;
+  existing invitation, permissions and request-flow regressions.
+- **Details:** [Plex sharing permissions](docs/plex-permissions.md).
+- **Upstream:** not sent.
+
 ### Preserve the administrator's login destination (2026-10-17)
 
 - **Problem:** the login form dropped `next`, and successful login always

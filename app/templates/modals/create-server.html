@@ -1,3 +1,4 @@
+{% import "_partials/plex_permission_help.html" as plex_help %}
 {# After a failed connection test, show the values that the admin typed. #}
 {% set typed = values or {} %}
 <div class="relative modal-container"
@@ -86,7 +87,8 @@
             <div id="media-server-options" style="display:none;">
               <div>
                 <label class="inline-flex items-center cursor-pointer">
-                  <input id="allow_downloads"
+                  <input aria-describedby="plex-downloads-help"
+                         id="allow_downloads"
                          name="allow_downloads"
                          type="checkbox"
                          value="true"
@@ -96,6 +98,7 @@
                   </div>
                   <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">Allow Downloads</span>
                 </label>
+                <div data-plex-permission-help>{{ plex_help.downloads("plex-downloads-help") }}</div>
               </div>
               <div id="allow-live-tv-option" class="mt-2">
                 <label class="inline-flex items-center cursor-pointer">
@@ -213,16 +216,23 @@
         const showMediaOptions = ['plex', 'jellyfin', 'emby', 'audiobookshelf', 'komga'].includes(type);
         document.getElementById('media-server-options').style.display = showMediaOptions ? 'block' : 'none';
 
-        // Hide "Allow Live TV" for Audiobookshelf and Komga since they don't support Live TV
+        // Plex uses separate Home tuner permissions; Jellyfin and Emby support this option.
         const allowLiveTvOption = document.getElementById('allow-live-tv-option');
         if (allowLiveTvOption) {
-            allowLiveTvOption.style.display = ['audiobookshelf', 'komga'].includes(type) ? 'none' : 'block';
+            const supported = ['jellyfin', 'emby'].includes(type);
+            allowLiveTvOption.style.display = supported ? 'block' : 'none';
+            allowLiveTvOption.querySelector('input').disabled = !supported;
         }
 
-        // Hide "Allow Mobile Uploads" for Audiobookshelf, Jellyfin, and Komga since they don't support mobile uploads
+        document.querySelectorAll('[data-plex-permission-help]').forEach(element => {
+            element.hidden = type !== 'plex';
+        });
+
+        // Camera uploads are still supported by Emby.
         const allowMobileUploadsOption = document.getElementById('allow-mobile-uploads-option');
         if (allowMobileUploadsOption) {
-            allowMobileUploadsOption.style.display = ['plex', 'emby'].includes(type) ? 'block' : 'none';
+            allowMobileUploadsOption.style.display = type === 'emby' ? 'block' : 'none';
+            allowMobileUploadsOption.querySelector('input').disabled = type !== 'emby';
         }
 
         // Show "Hide new users from login screens" for Jellyfin only

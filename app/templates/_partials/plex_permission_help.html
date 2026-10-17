@@ -1,0 +1,12 @@
+{% macro downloads(help_id) -%}
+  <p id="{{ help_id }}"
+     class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    {{ _("Allow offline copies of shared media. Plex's Downloads subscription requirements still apply.") }}
+  </p>
+{%- endmacro %}
+{% macro home(help_id) -%}
+  <p id="{{ help_id }}"
+     class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    {{ _("For household members and profile switching. Leave off for ordinary library sharing. Plex requires Home membership for native Live TV; external proxies manage access separately.") }}
+  </p>
+{%- endmacro %}
