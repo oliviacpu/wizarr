@@ -42,16 +42,18 @@ def verified_account(token: str):
             not account_id.isdecimal()
             or int(account_id) <= 0
             or len(account_id) > 32
-            or not account.confirmed
             or account.guest
             or not account.email
             or not account.username
         ):
             raise ValueError("Account is not a confirmed Plex account")
+        confirmed = account.confirmed
     except Exception:
         raise ValueError(
             "Plex sign-in could not be verified. Please try again."
         ) from None
+    if not confirmed:
+        raise ValueError("Confirm your email in Plex, then return and try again.")
     return account
 
 

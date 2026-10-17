@@ -34,7 +34,7 @@ jobs:
       - run: uv run --frozen --group dev ruff format --check app tests migrations
       - run: uv run --frozen --group dev djlint app/templates --check --profile=jinja
       # Upstream's broad ty check is advisory. Gate the new service and routes.
-      - run: uv run --frozen --group dev ty check app/services/access_requests.py app/blueprints/access_requests/routes.py
+      - run: uv run --frozen --group dev ty check app/services/access_requests.py app/blueprints/access_requests/routes.py app/blueprints/auth/redirects.py
       - run: uv run --frozen --group dev playwright install --with-deps chromium
       - run: uv run --frozen --group dev pytest --verbose --browser chromium
 
