@@ -54,6 +54,16 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Refresh retained users during request redemption (2026-10-16)
+
+- **Problem:** a local user left behind by a removed Plex share or synchronization
+  can contain a placeholder token, old username or expired/disabled state.
+- **Change:** successful bound redemption refreshes the existing row from the
+  verified account and current invitation, preserving its ID and local notes.
+- **Tests:** code and email matches refresh credentials, identity fields, expiry,
+  enabled state and libraries without creating another user.
+- **Upstream:** not sent.
+
 ### Expire request invitations before migration downgrade (2026-10-16)
 
 - **Problem:** older Wizarr code cannot enforce the account binding after its

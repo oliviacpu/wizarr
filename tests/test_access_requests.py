@@ -287,6 +287,48 @@ def test_approval_redemption_and_repeated_completion(client, setup_requests, ple
     )
 
 
+@pytest.mark.parametrize("match_by", ["code", "email"])
+@pytest.mark.parametrize("duration", [None, "7"])
+def test_redemption_refreshes_reused_user(
+    client, setup_requests, plex, match_by, duration
+):
+    row = approved(client, setup_requests)
+    row.invitation.duration = duration
+    user = User(
+        token="None",
+        username="old-username",
+        email="old@example.test" if match_by == "code" else plex.account.email,
+        code=row.invitation.code if match_by == "code" else "old-invite",
+        server_id=setup_requests.server.id,
+        expires=datetime.now(UTC) - timedelta(days=1),
+        is_disabled=True,
+        notes="Keep this note",
+    )
+    db.session.add(user)
+    db.session.commit()
+    user_id = user.id
+    before = datetime.now(UTC).replace(tzinfo=None)
+
+    service.redeem(row, plex.account, "fresh-requester-token")
+
+    assert row.status == "completed"
+    assert User.query.count() == 1 and user.id == user_id
+    assert user.token == "fresh-requester-token"
+    assert user.username == plex.account.username and user.email == plex.account.email
+    assert user.code == row.invitation.code and not user.is_disabled
+    assert user.notes == "Keep this note"
+    assert user.get_accessible_libraries() == ["Movies"]
+    if duration:
+        assert (
+            before + timedelta(days=7)
+            <= user.expires
+            <= datetime.now(UTC).replace(tzinfo=None) + timedelta(days=7)
+        )
+    else:
+        assert user.expires is None
+    plex.client._create_user_with_identity_linking.assert_not_called()
+
+
 def test_wrong_account_and_legacy_paths_cannot_redeem(client, setup_requests, plex):
     row = approved(client, setup_requests)
     code = row.invitation.code

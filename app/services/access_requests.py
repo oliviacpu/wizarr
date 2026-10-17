@@ -332,19 +332,25 @@ def redeem(row: AccessRequest, account, token: str) -> str:
             user = User.query.filter_by(
                 email=account.email, server_id=server.id
             ).first()
-        if user is None:
-            from app.services.expiry import calculate_user_expiry
+        from app.services.expiry import calculate_user_expiry
 
+        expires = calculate_user_expiry(invite, server.id)
+        if user is None:
             user = client._create_user_with_identity_linking(
                 {
                     "username": account.username,
                     "email": account.email,
                     "token": token,
                     "code": invite.code,
-                    "expires": calculate_user_expiry(invite, server.id),
+                    "expires": expires,
                     "server_id": server.id,
                 }
             )
+        user.token = token
+        user.username = account.username
+        user.email = account.email
+        user.expires = expires
+        user.is_disabled = False
         user.code = invite.code
         user.set_accessible_libraries([lib.name for lib in libraries])
         db.session.flush()
