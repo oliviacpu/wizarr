@@ -2,13 +2,47 @@
     const script = document.currentScript;
     const stateKey = "wizarr.accessRequestSignIn";
     const errorBox = document.getElementById("request-error");
+    const cancelButton = document.getElementById("cancel-request-signin");
+    let signInAttempt = 0;
     const csrf = () => document.querySelector('[name="csrf_token"]')?.value || "";
     const showError = () => {
         errorBox.textContent = "Sign-in or setup could not be completed. Refresh status before trying again.";
     };
-    async function post(url, data) {
+    function showStep(id) {
+        const panel = document.getElementById(id);
+        if (!panel) return;
+        for (const step of document.querySelectorAll("[data-request-panel]")) {
+            step.hidden = step !== panel;
+        }
+        (panel.querySelector("input:not([type=hidden])") || panel.querySelector("h2"))?.focus();
+    }
+    function clearSignIn() {
+        signInAttempt += 1;
+        sessionStorage.removeItem(stateKey);
+        if (cancelButton) cancelButton.hidden = true;
+        for (const form of document.querySelectorAll("[data-oauth-mode]")) {
+            form.querySelector('[type="submit"]').disabled = false;
+        }
+        for (const button of document.querySelectorAll("[data-request-step]")) {
+            button.disabled = false;
+        }
+    }
+    for (const button of document.querySelectorAll("[data-request-step]")) {
+        button.addEventListener("click", () => {
+            clearSignIn();
+            errorBox.textContent = "";
+            showStep(button.dataset.requestStep);
+        });
+    }
+    cancelButton?.addEventListener("click", () => {
+        clearSignIn();
+        errorBox.textContent = "";
+        showStep("request-details");
+    });
+    async function post(url, data, attempt = signInAttempt) {
         const response = await fetch(url, {method: "POST", body: data, credentials: "same-origin"});
         const result = await response.json();
+        if (attempt !== signInAttempt) return null;
         if (!response.ok) {
             errorBox.textContent = result.error || "Please refresh and try again.";
             return null;
@@ -38,36 +72,58 @@
         const saved = sessionStorage.getItem(stateKey);
         if (!saved) return;
         const state = JSON.parse(saved);
-        if (Date.now() > state.deadline) {
-            sessionStorage.removeItem(stateKey);
-            showError();
-            return;
-        }
         const form = document.querySelector(`[data-oauth-mode="${state.mode}"]`);
         if (!form) return;
         for (const name of ["identifier", "display_name"]) {
             if (form.elements[name]) form.elements[name].value = state[name] || "";
         }
-        errorBox.textContent = "Confirming Plex sign-in…";
-        while (Date.now() <= state.deadline) {
-            const token = await plexOAuthPollToken(state);
-            if (token) {
-                sessionStorage.removeItem(stateKey);
-                const data = new FormData(form);
-                data.set("oauth_token", token);
-                const result = await post(form.action, data);
-                if (result) location.replace(result.redirect);
-                return;
-            }
-            await new Promise(resolve => setTimeout(resolve, 1500));
+        if (state.mode === "submit") showStep("request-details");
+        if (Date.now() > state.deadline) {
+            clearSignIn();
+            showError();
+            return;
         }
-        sessionStorage.removeItem(stateKey);
-        showError();
+        const attempt = ++signInAttempt;
+        form.querySelector('[type="submit"]').disabled = true;
+        if (cancelButton) cancelButton.hidden = false;
+        errorBox.textContent = "Confirming Plex sign-in…";
+        try {
+            while (Date.now() <= state.deadline) {
+                const token = await plexOAuthPollToken(state);
+                if (attempt !== signInAttempt) return;
+                if (token) {
+                    sessionStorage.removeItem(stateKey);
+                    if (cancelButton) cancelButton.hidden = true;
+                    for (const button of document.querySelectorAll("[data-request-step]")) {
+                        button.disabled = true;
+                    }
+                    errorBox.textContent = "Completing Plex sign-in…";
+                    const data = new FormData(form);
+                    data.set("oauth_token", token);
+                    const result = await post(form.action, data, attempt);
+                    if (attempt !== signInAttempt) return;
+                    clearSignIn();
+                    if (result) location.replace(result.redirect);
+                    return;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            }
+        } catch (error) {
+            if (attempt === signInAttempt) throw error;
+            return;
+        }
+        if (attempt === signInAttempt) {
+            clearSignIn();
+            showError();
+        }
     }
     for (const form of document.querySelectorAll("[data-oauth-mode]")) {
         form.addEventListener("submit", async event => {
             event.preventDefault();
-            form.querySelector("button").disabled = true;
+            clearSignIn();
+            const attempt = signInAttempt;
+            form.querySelector('[type="submit"]').disabled = true;
+            if (cancelButton) cancelButton.hidden = false;
             try {
                 const clientId = crypto.randomUUID();
                 const response = await fetch("https://plex.tv/api/v2/pins?strong=true", {
@@ -76,6 +132,7 @@
                 });
                 if (!response.ok) throw new Error("Plex sign-in unavailable");
                 const pin = await response.json();
+                if (attempt !== signInAttempt) return;
                 const state = {
                     pinId: pin.id, clientId, mode: form.dataset.oauthMode,
                     identifier: form.elements.identifier?.value || "",
@@ -89,13 +146,15 @@
                 });
                 location.assign("https://app.plex.tv/auth/#!?" + params);
             } catch {
-                form.querySelector("button").disabled = false;
-                showError();
+                if (attempt === signInAttempt) {
+                    clearSignIn();
+                    showError();
+                }
             }
         });
     }
     claimLink().then(finishSignIn).catch(() => {
-        sessionStorage.removeItem(stateKey);
+        clearSignIn();
         showError();
     });
 })();

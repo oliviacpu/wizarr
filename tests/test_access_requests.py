@@ -214,6 +214,39 @@ def test_unverified_account_refused(client, setup_requests, field, value):
     assert AccessRequest.query.count() == 0
 
 
+def test_unconfirmed_account_guidance_and_confirmed_retry(client, setup_requests):
+    setup_requests.account.confirmed = False
+    response = submit(client)
+    assert response.status_code == 400
+    assert response.json == {
+        "error": "Confirm your email in Plex, then return and try again."
+    }
+    assert "requester" not in response.text
+    assert AccessRequest.query.count() == Invitation.query.count() == 0
+    assert User.query.count() == 0
+    setup_requests.account.confirmed = True
+    assert submit(client).status_code == 200
+    assert submit(client).status_code == 200
+    assert AccessRequest.query.one().status == "pending"
+    assert Invitation.query.count() == User.query.count() == 0
+
+
+@pytest.mark.parametrize(
+    "field,value", [("guest", True), ("id", None), ("email", ""), ("username", "")]
+)
+def test_confirmation_guidance_requires_authenticated_valid_account(
+    client, setup_requests, field, value
+):
+    setup_requests.account.confirmed = False
+    setattr(setup_requests.account, field, value)
+    response = submit(client)
+    assert response.status_code == 400
+    assert response.json == {
+        "error": "Plex sign-in could not be verified. Please try again."
+    }
+    assert AccessRequest.query.count() == Invitation.query.count() == 0
+
+
 def test_plex_failure_is_sanitized_and_does_not_save(
     client, setup_requests, monkeypatch, caplog
 ):

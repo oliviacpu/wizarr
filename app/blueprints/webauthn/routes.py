@@ -28,6 +28,7 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
+from app.blueprints.auth.redirects import login_destination
 from app.extensions import db, limiter
 from app.models import AdminAccount, WebAuthnCredential
 
@@ -298,6 +299,10 @@ def authenticate_begin():
     )
 
     session["webauthn_challenge"] = authentication_options.challenge
+    data = request.get_json(silent=True) or {}
+    session["webauthn_next"] = login_destination(
+        data.get("next") or session.get("pending_2fa_next")
+    )
 
     # Convert to JSON-serializable format
     def base64url_encode(data):
@@ -382,13 +387,19 @@ def authenticate_complete():
         session.pop("webauthn_challenge", None)
 
         if pending_2fa_user_id:
+            session.pop("webauthn_next", None)
             # 2FA mode - complete the authentication via the auth route
             return jsonify({"verified": True, "redirect": url_for("auth.complete_2fa")})
         # Usernameless mode - login directly
         from flask_login import login_user
 
         login_user(admin_account, remember=True)
-        return jsonify({"verified": True, "redirect": url_for("admin.dashboard")})
+        return jsonify(
+            {
+                "verified": True,
+                "redirect": login_destination(session.pop("webauthn_next", None)),
+            }
+        )
 
     except Exception:
         return jsonify({"error": "Authentication failed"}), 400

@@ -54,6 +54,52 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Remove obsolete Plex controls and explain sharing permissions (2026-10-17)
+
+- **Problem:** Plex Camera Upload was retired, and the inherited Live TV switch
+  wrote the legacy `allowChannels` permission rather than modern tuner access.
+- **Change:** remove both Plex controls from server, invitation and user forms;
+  explain Downloads and Plex Home. Keep supported Jellyfin/Emby options and
+  disable hidden controls when changing server types. Legacy database/API fields
+  remain compatible, with no migration or changes to existing Plex shares.
+- **Checks:** desktop/mobile browser coverage of create/edit forms, switching
+  server types with checked values, invitation/user rendering and saved values;
+  existing invitation, permissions and request-flow regressions.
+- **Details:** [Plex sharing permissions](docs/plex-permissions.md).
+- **Upstream:** not sent.
+
+### Preserve the administrator's login destination (2026-10-17)
+
+- **Problem:** the login form dropped `next`, and successful login always
+  redirected to `/`. A public landing-page redirect then sent administrators
+  back to the requester form.
+- **Change:** preserve a local `next` path through password login, retries,
+  LDAP, Cloudflare Access and passkey authentication, including two-factor
+  completion. The default destination is `/admin`. External, ambiguous and
+  control-character destinations fall back to the admin dashboard.
+- **Tests:** rendered form/retry round trips, legacy credentials, LDAP,
+  passkey/second-factor completion, unsafe destinations and browser login
+  directly into Requests on desktop and mobile.
+- **Upstream:** not sent.
+
+### Guide new Plex accounts before requesting access (2026-10-17)
+
+- **Problem:** the public request page assumed an existing Plex account, and
+  unconfirmed accounts received generic verification failures.
+- **Change:** ask whether the visitor has a Plex account. New users get official
+  signup in a separate tab, email-confirmation and return instructions; existing
+  users continue to the request form. Form values survive switching steps,
+  OAuth returns, expiry and cancellation. An authenticated unconfirmed account
+  gets a safe confirmation prompt. Late results from cancelled sign-ins cannot
+  submit a request or replace the current error state. Step navigation is locked
+  while the verified request is being submitted and restored after a failure.
+- **Tests:** keyboard focus and desktop/mobile signup flows, preserving fields,
+  no early PIN/request, confirmation then retry, expired sign-in recovery and
+  late token/error refusal after cancellation. Existing approval, account
+  binding, private status and manual provisioning tests remain required.
+- **Design:** [account signup plan](docs/plans/plex-account-signup.md).
+- **Upstream:** not sent.
+
 ### Keep admin CSRF stable during parallel dashboard loads (2026-10-16)
 
 - **Problem:** an initial Home fragment can save an older session snapshot after

@@ -1,7 +1,7 @@
 import logging
 import os
 
-from flask import Blueprint, redirect, render_template, request, url_for
+from flask import Blueprint, redirect, render_template, request, session, url_for
 from flask_babel import _
 from flask_login import login_required, login_user, logout_user
 from werkzeug.security import check_password_hash
@@ -10,12 +10,15 @@ from app.extensions import db, limiter
 from app.models import AdminAccount, AdminUser, Settings
 from app.services import cloudflare_access
 
+from .redirects import login_destination
+
 auth_bp = Blueprint("auth", __name__)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per minute")
 def login():
+    next_url = login_destination(request.form.get("next") or request.args.get("next"))
     # Cloudflare Access mode takes precedence over every other login method,
     # including DISABLE_BUILTIN_AUTH: no valid Access token, no admin session.
     if cloudflare_access.enabled():
@@ -30,11 +33,11 @@ def login():
             claims.get("email") or claims.get("common_name") or "unknown",
         )
         login_user(AdminUser())
-        return redirect("/")
+        return redirect(next_url)
 
     if os.getenv("DISABLE_BUILTIN_AUTH", "").lower() == "true":
         login_user(AdminUser(), remember=bool(request.form.get("remember")))
-        return redirect("/")
+        return redirect(next_url)
 
     # Pre-compute shared template context
     from app.models import LDAPConfiguration, WebAuthnCredential
@@ -49,6 +52,7 @@ def login():
     if request.method in ("GET", "HEAD"):
         return render_template(
             "login.html",
+            next_url=next_url,
             has_passkeys=has_passkeys,
             ldap_enabled=ldap_enabled,
             media_server_url=media_server_url,
@@ -65,10 +69,11 @@ def login():
 
         success, message = handle_ldap_login(username, password)
         if success:
-            return redirect("/")
+            return redirect(next_url)
 
         return render_template(
             "login.html",
+            next_url=next_url,
             error=message,
             has_passkeys=has_passkeys,
             ldap_enabled=ldap_enabled,
@@ -85,16 +90,19 @@ def login():
 
         if WebAuthnCredential.query.filter_by(admin_account_id=account.id).first():
             # Store user in session for 2FA verification
-            from flask import session
-
             session["pending_2fa_user_id"] = account.id
             session["pending_2fa_remember"] = bool(request.form.get("remember"))
+            session["pending_2fa_next"] = next_url
             return render_template(
-                "login.html", show_2fa=True, username=username, has_passkeys=True
+                "login.html",
+                show_2fa=True,
+                username=username,
+                has_passkeys=True,
+                next_url=next_url,
             )
         # No passkeys, allow direct login
         login_user(account, remember=bool(request.form.get("remember")))
-        return redirect("/")
+        return redirect(next_url)
 
     # fetch the stored admin credentials
     admin_username = (
@@ -111,7 +119,7 @@ def login():
     ):
         # Legacy single-admin (Settings table)
         login_user(AdminUser(), remember=bool(request.form.get("remember")))
-        return redirect("/")
+        return redirect(next_url)
 
     # Get IP address: prefer Cloudflare's header, then X-Forwarded-For, then remote_addr
     client_ip = (
@@ -126,6 +134,7 @@ def login():
 
     return render_template(
         "login.html",
+        next_url=next_url,
         error=_("Invalid username or password"),
         has_passkeys=has_passkeys,
         ldap_enabled=ldap_enabled,
@@ -138,10 +147,9 @@ def login():
 @limiter.limit("10 per minute")
 def complete_2fa():
     """Complete 2FA authentication with passkey."""
-    from flask import session
-
     user_id = session.get("pending_2fa_user_id")
     remember = session.get("pending_2fa_remember", False)
+    next_url = login_destination(session.get("pending_2fa_next"))
 
     if not user_id:
         # Check if there are any passkeys registered for error page
@@ -150,6 +158,7 @@ def complete_2fa():
         has_passkeys = WebAuthnCredential.query.first() is not None
         return render_template(
             "login.html",
+            next_url=next_url,
             error=_("No pending 2FA authentication"),
             has_passkeys=has_passkeys,
         )
@@ -159,21 +168,26 @@ def complete_2fa():
     if not account:
         session.pop("pending_2fa_user_id", None)
         session.pop("pending_2fa_remember", None)
+        session.pop("pending_2fa_next", None)
         # Check if there are any passkeys registered for error page
         from app.models import WebAuthnCredential
 
         has_passkeys = WebAuthnCredential.query.first() is not None
         return render_template(
-            "login.html", error=_("Authentication failed"), has_passkeys=has_passkeys
+            "login.html",
+            error=_("Authentication failed"),
+            has_passkeys=has_passkeys,
+            next_url=next_url,
         )
 
     # The actual WebAuthn verification will be handled by the existing WebAuthn route
     # This route is called after successful WebAuthn authentication
     session.pop("pending_2fa_user_id", None)
     session.pop("pending_2fa_remember", None)
+    session.pop("pending_2fa_next", None)
 
     login_user(account, remember=remember)
-    return redirect("/")
+    return redirect(next_url)
 
 
 # ── Logout ────────────────────────────────────────────────────────────

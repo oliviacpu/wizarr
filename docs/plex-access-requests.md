@@ -11,6 +11,9 @@ Use HTTPS and Wizarr's normal persistent database and session directories.
 Keep `/access-requests` and the other admin paths behind normal admin
 authentication. Public routes live under `/request-access`; an external login
 gateway must permit those paths without granting access to admin routes.
+An installation may redirect its public `/` to `/request-access`; administrators
+can still visit `/admin`. Login preserves a local `next` destination, including
+an admin tab fragment, and defaults to `/admin` when none is supplied.
 
 Downgrading this migration expires request-bound invitations before removing
 their account binding. They cannot become ordinary redeemable invite codes in
@@ -18,9 +21,21 @@ older Wizarr versions. Existing ordinary invitations remain unchanged.
 
 ## Request and decision
 
-The requester enters their Plex username or email and optionally identifies
+The public page first asks whether the requester has a Plex account. Visitors
+without one get instructions to create a free account on Plex in a separate
+tab, confirm their email if prompted, then return to request access. Creating
+an account grants no server access. Plex sign-in starts only when the requester
+submits the form, so signup does not consume its sign-in window.
+
+The requester then enters their Plex username or email and optionally identifies
 themselves. Plex sign-in confirms which account is requesting access; it does
 not grant server access. The identifier must match the signed-in account.
+An authenticated account that still needs email confirmation gets instructions
+to confirm in Plex and retry. The form preserves values when switching account
+steps and returning from sign-in, including after expiration or cancellation.
+**Cancel sign-in** discards that attempt; a late Plex response cannot submit it.
+Once verification finishes and the request is being sent, step navigation is
+temporarily disabled; a failed submission restores it for retry.
 Pending requests appear in **Requests**, with the entered value and verified
 Plex username, email and account ID shown separately.
 

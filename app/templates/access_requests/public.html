@@ -4,32 +4,84 @@
   <main class="min-h-screen bg-gray-50 dark:bg-gray-900 px-6 py-12 text-gray-900 dark:text-white">
     <div class="max-w-md mx-auto p-6 space-y-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
       <h1 class="text-2xl font-semibold">{{ _("Request Plex access") }}</h1>
-      <p>{{ _("Sign in with Plex to confirm your account. An administrator will review your request before granting access.") }}</p>
-      <form data-oauth-mode="submit"
-            action="{{ url_for('access_requests.public_request') }}"
-            method="post"
-            class="space-y-4">
-        {{ form.hidden_tag() }}
-        <div>
-          <label for="identifier" class="block mb-2">{{ _("Plex email or username") }}</label>
-          <input id="identifier"
-                 name="identifier"
-                 maxlength="254"
-                 required
-                 autocomplete="username"
-                 class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700">
+      <p>{{ _("Use your own Plex account to request access. An administrator will review your request before granting access.") }}</p>
+      <section id="account-choice" data-request-panel class="space-y-4">
+        <h2 tabindex="-1" class="text-lg font-semibold">{{ _("Do you have a Plex account?") }}</h2>
+        <div class="space-y-3">
+          <button type="button"
+                  data-request-step="request-details"
+                  aria-controls="request-details"
+                  class="w-full rounded-lg bg-primary text-white px-4 py-3">{{ _("I have an account") }}</button>
+          <button type="button"
+                  data-request-step="account-signup"
+                  aria-controls="account-signup"
+                  class="w-full rounded-lg border border-primary text-primary px-4 py-3">{{ _("I need an account") }}</button>
         </div>
-        <div>
-          <label for="display_name" class="block mb-2">{{ _("Who are you? (optional)") }}</label>
-          <input id="display_name"
-                 name="display_name"
-                 maxlength="100"
-                 autocomplete="name"
-                 class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700">
-        </div>
-        <button type="submit"
-                class="w-full rounded-lg bg-primary text-white px-4 py-3">{{ _("Sign in with Plex and submit") }}</button>
-      </form>
+      </section>
+      <section id="account-signup" data-request-panel hidden class="space-y-4">
+        <h2 tabindex="-1" class="text-lg font-semibold">{{ _("Create your Plex account") }}</h2>
+        <ol class="list-decimal pl-5 space-y-3">
+          <li>{{ _("Create your own free account on Plex. The signup page opens in a new tab, so keep this tab open.") }}</li>
+          <li>{{ _("Finish signing up and confirm your email if Plex asks you to.") }}</li>
+          <li>{{ _("Return to this tab and continue below to request access.") }}</li>
+        </ol>
+        <a href="https://www.plex.tv/sign-up/"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="inline-block text-primary underline">{{ _("Create a Plex account (opens in a new tab)") }}</a>
+        <p>{{ _("Creating an account does not give you access to this server. An administrator still needs to approve your request.") }}</p>
+        <button type="button"
+                data-request-step="request-details"
+                aria-controls="request-details"
+                class="w-full rounded-lg bg-primary text-white px-4 py-3">{{ _("I have my account—continue") }}</button>
+        <button type="button"
+                data-request-step="account-choice"
+                aria-controls="account-choice"
+                class="text-primary underline">{{ _("Back") }}</button>
+      </section>
+      <section id="request-details" data-request-panel hidden class="space-y-4">
+        <h2 tabindex="-1" class="text-lg font-semibold">{{ _("Confirm your Plex account") }}</h2>
+        <form data-oauth-mode="submit"
+              action="{{ url_for('access_requests.public_request') }}"
+              method="post"
+              class="space-y-4">
+          {{ form.hidden_tag() }}
+          <div>
+            <label for="identifier" class="block mb-2">{{ _("Plex email or username") }}</label>
+            <input id="identifier"
+                   name="identifier"
+                   maxlength="254"
+                   required
+                   autocomplete="username"
+                   aria-describedby="identifier-help"
+                   class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700">
+            <p id="identifier-help"
+               class="mt-2 text-sm">{{ _("Use the email or username of the Plex account you sign in with.") }}</p>
+          </div>
+          <div>
+            <label for="display_name" class="block mb-2">{{ _("Who are you? (optional)") }}</label>
+            <input id="display_name"
+                   name="display_name"
+                   maxlength="100"
+                   autocomplete="name"
+                   class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700">
+          </div>
+          <button type="submit"
+                  class="w-full rounded-lg bg-primary text-white px-4 py-3">{{ _("Sign in with Plex and submit") }}</button>
+        </form>
+        <button id="cancel-request-signin"
+                type="button"
+                hidden
+                class="text-primary underline">{{ _("Cancel sign-in") }}</button>
+        <button type="button"
+                data-request-step="account-signup"
+                aria-controls="account-signup"
+                class="text-primary underline">{{ _("I need to create an account first") }}</button>
+        <button type="button"
+                data-request-step="account-choice"
+                aria-controls="account-choice"
+                class="block text-primary underline">{{ _("Back") }}</button>
+      </section>
       <p id="request-error"
          role="alert"
          class="text-red-600 dark:text-red-400"></p>
