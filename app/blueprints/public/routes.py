@@ -412,6 +412,8 @@ def password_prompt(code):
 
     if not invitation:
         return render_template("invalid-invite.html", error="Invalid invite")
+    if invitation.plex_account_id:
+        abort(403, "Use the private request status page to redeem this invitation.")
 
     # ensure Plex has been processed
     # (a user row with this code and plex server_id should exist)

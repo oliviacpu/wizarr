@@ -51,6 +51,17 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Refuse request invitations in legacy form redemption (2026-10-16)
+
+- **Problem:** older media-specific forms and the multi-server password prompt
+  can bypass the dedicated requester flow, especially if an administrator adds
+  another server to an approved invitation.
+- **Change:** the legacy invitation manager and password prompt refuse any
+  account-bound request invitation before creating users or granting wizard access.
+- **Tests:** all five registered legacy media forms refuse a bound invitation
+  after a server-scope edit; GET and POST password-prompt bypasses are refused.
+- **Upstream:** not sent.
+
 ### Bound streamed request bodies (2026-10-16)
 
 - **Problem:** a chunked public POST may omit Content-Length, so a header-only

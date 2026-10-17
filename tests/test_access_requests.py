@@ -616,3 +616,53 @@ def test_streamed_body_cannot_bypass_request_size_limit(client, setup_requests):
     assert response.status_code in {400, 413}
     assert stream.tell() <= 8192
     assert AccessRequest.query.count() == 0
+
+
+@pytest.mark.parametrize(
+    "path", ["/jf/join", "/emby/join", "/abs/join", "/kavita/join", "/komga/join"]
+)
+def test_bound_invitation_refuses_legacy_form_redemption_after_scope_edit(
+    client, setup_requests, monkeypatch, path
+):
+    row = approved(client, setup_requests)
+    other = MediaServer(
+        name="Other server",
+        server_type="jellyfin",
+        url="http://media.example.test",
+        verified=True,
+    )
+    row.invitation.servers.append(other)
+    db.session.commit()
+    get_client = Mock()
+    monkeypatch.setattr(
+        "app.services.invitation_manager.get_client_for_media_server", get_client
+    )
+    response = client.post(
+        path,
+        data={
+            "code": row.invitation.code,
+            "username": "another",
+            "email": "another@example.com",
+            "password": "TestPassword123",
+            "confirm_password": "TestPassword123",
+        },
+    )
+    assert "private request status page" in response.text
+    get_client.assert_not_called()
+    assert row.status == "approved" and not row.invitation.used
+    assert User.query.count() == 0
+
+
+def test_bound_invitation_refuses_legacy_password_prompt(client, setup_requests, plex):
+    row = approved(client, setup_requests)
+    path = f"/j/{row.invitation.code}/password"
+    assert client.get(path).status_code == 403
+    assert (
+        client.post(
+            path, data={"password": "TestPassword123", "confirm": "TestPassword123"}
+        ).status_code
+        == 403
+    )
+    with client.session_transaction() as browser_session:
+        assert "wizard_access" not in browser_session
+    plex.client.invite_friend.assert_not_called()
