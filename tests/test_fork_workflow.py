@@ -1,5 +1,6 @@
 import os
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -120,3 +121,24 @@ def test_upstream_jobs_are_guarded_and_fork_images_require_tests():
         else:
             for job in workflow["jobs"].values():
                 assert "github.repository == 'wizarrrr/wizarr'" in job["if"], path.name
+
+
+def test_container_version_preserves_upstream_update_checks(monkeypatch):
+    from app.services.update_check import check_update_available
+
+    repository = SCRIPT.parents[1]
+    workflow = yaml.safe_load((repository / ".github/workflows/fork.yml").read_text())
+    build = next(
+        step
+        for step in workflow["jobs"]["image"]["steps"]
+        if step.get("name") == "Build immutable release image"
+    )
+    image_version = build["with"]["build-args"].split("=", 1)[1]
+    project_version = tomllib.loads((repository / "pyproject.toml").read_text())[
+        "project"
+    ]["version"]
+    assert image_version == project_version
+    monkeypatch.setattr(
+        "app.services.update_check._manifest", lambda: {"latest_version": "9999.1.1"}
+    )
+    assert check_update_available(image_version)

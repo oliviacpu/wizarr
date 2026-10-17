@@ -31,6 +31,9 @@ day), whose commit is on this fork's `main`, publishes
 `ghcr.io/oliviacpu/wizarr:<tag>` for **linux/amd64** after those checks pass.
 Pushes to `main` and PRs test without publishing. Manual dispatch publishes only
 when run on a valid release tag. Pushing a release tag is a release operation.
+The application reports the upstream base version, so Wizarr's strict version
+parser and upstream update check keep working. The fork release tag is recorded
+in the immutable image tag and OCI version label instead of `APP_VERSION`.
 
 The image job is serialized across all tags. `scripts/fork-image.sh` checks the
 remote tag and existing registry image: an existing tag at the same source commit
@@ -129,8 +132,11 @@ recovery and the remaining live Plex checks.
 - **Change:** guarded upstream jobs, dedicated tests-before-image workflow,
   dated immutable tags, linux/amd64 builds and serialized newest-tag promotion.
   The release script uses standard runner utilities; it does not require ripgrep.
+  `APP_VERSION` remains the upstream base: appending a dated fork tag produces
+  an invalid version for Wizarr's update checker and can break the admin page.
 - **Tests:** `tests/test_fork_workflow.py` exercises the publishing script against
   disposable local Git repositories and a simulated registry CLI. No registry
   image, GitHub release tag or deployment is created by these tests.
   The test environment uses a minimal system PATH to catch undeclared tools.
+  A container-version test exercises Wizarr's actual upstream update checker.
 - **Upstream:** fork configuration only.

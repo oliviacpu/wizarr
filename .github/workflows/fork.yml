@@ -70,7 +70,7 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ghcr.io/oliviacpu/wizarr:${{ github.ref_name }}
-          build-args: APP_VERSION=2026.10.1-${{ github.ref_name }}
+          build-args: APP_VERSION=2026.10.1
           labels: |
             org.opencontainers.image.source=https://github.com/oliviacpu/wizarr
             org.opencontainers.image.revision=${{ github.sha }}
