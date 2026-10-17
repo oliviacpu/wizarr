@@ -54,6 +54,18 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Keep initial admin navigation on the requested tab (2026-10-17)
+
+- **Problem:** JSON inside the Home loader's double-quoted HTML attribute was
+  not attribute-escaped. The browser truncated its HTMX filter, so Home could
+  load alongside Requests or Settings and overwrite the intended tab.
+- **Change:** escape the JSON for the HTML attribute. Known tabs load their
+  requested panel only; an unknown hash still falls back to Home.
+- **Tests:** deterministic desktop/mobile cases assert that Requests and
+  Settings never issue a competing Home request, and unknown hashes load Home.
+  All four known-tab cases fail before the fix and pass afterward.
+- **Upstream:** not sent.
+
 ### Remove obsolete Plex controls and explain sharing permissions (2026-10-17)
 
 - **Problem:** Plex Camera Upload was retired, and the inherited Live TV switch

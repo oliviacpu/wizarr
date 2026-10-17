@@ -522,3 +522,35 @@ def test_plex_permissions_hide_retired_options(app, browser, request_site, width
         assert db.session.get(MediaServer, server_id).allow_live_tv is True
         assert db.session.get(User, user_id).allow_camera_upload is True
     context.close()
+
+
+@pytest.mark.parametrize("width", [1280, 390])
+@pytest.mark.parametrize("tab", ["access-requests", "settings", "unknown"])
+def test_admin_initial_tab_does_not_load_competing_home(
+    browser, request_site, width, tab
+):
+    context = browser.new_context(viewport={"width": width, "height": 900})
+    page = context.new_page()
+    home_requests = []
+
+    def home(route):
+        home_requests.append(route.request.url)
+        route.fulfill(
+            status=200, content_type="text/html", body="<h1>Example Home</h1>"
+        )
+
+    page.route("**/home", home)
+    page.goto(request_site.url + "/login?next=%2Fadmin%23" + tab)
+    page.locator('[name="username"]').fill("reviewer")
+    page.locator('[name="password"]').fill("test-review-password")
+    page.locator("#password-login").click()
+    page.wait_for_url(request_site.url + "/admin#" + tab)
+    page.wait_for_load_state("networkidle")
+    if tab == "unknown":
+        assert len(home_requests) == 1
+        expected = "Example Home"
+    else:
+        assert home_requests == [], "Home must not compete with the requested tab"
+        expected = "Access requests" if tab == "access-requests" else "Settings"
+    expect(page.get_by_role("heading", name=expected, exact=True)).to_be_visible()
+    context.close()
