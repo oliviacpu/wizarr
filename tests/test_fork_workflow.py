@@ -48,7 +48,7 @@ esac
     docker.chmod(0o755)
     environment = {
         **os.environ,
-        "PATH": str(binary) + os.pathsep + os.environ["PATH"],
+        "PATH": str(binary) + os.pathsep + os.defpath,
         "GITHUB_REPOSITORY": "oliviacpu/wizarr",
         "GITHUB_REF": "refs/tags/oliviacpu-2026.10.16",
         "GITHUB_REF_NAME": "oliviacpu-2026.10.16",

@@ -128,7 +128,9 @@ recovery and the remaining live Plex checks.
   upstream credentials; the fork needs a separate release path.
 - **Change:** guarded upstream jobs, dedicated tests-before-image workflow,
   dated immutable tags, linux/amd64 builds and serialized newest-tag promotion.
+  The release script uses standard runner utilities; it does not require ripgrep.
 - **Tests:** `tests/test_fork_workflow.py` exercises the publishing script against
   disposable local Git repositories and a simulated registry CLI. No registry
   image, GitHub release tag or deployment is created by these tests.
+  The test environment uses a minimal system PATH to catch undeclared tools.
 - **Upstream:** fork configuration only.

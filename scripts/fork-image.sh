@@ -26,7 +26,7 @@ case ${1:-} in
         exit 1
       fi
       echo 'exists=true' >> "$GITHUB_OUTPUT"
-    elif rg -qi 'manifest unknown|manifest_unknown|not found' "$error_file"; then
+    elif grep -Eiq 'manifest unknown|manifest_unknown|not found' "$error_file"; then
       echo 'exists=false' >> "$GITHUB_OUTPUT"
     else
       cat "$error_file" >&2
@@ -34,7 +34,7 @@ case ${1:-} in
     fi
     ;;
   latest)
-    newest=$(git tag -l 'oliviacpu-*' --sort=-v:refname | rg '^oliviacpu-[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[1-9][0-9]*)?$' | sed -n '1p')
+    newest=$(git tag -l 'oliviacpu-*' --sort=-v:refname | grep -E '^oliviacpu-[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[1-9][0-9]*)?$' | sed -n '1p')
     if [[ $newest != "$GITHUB_REF_NAME" ]]; then
       echo "::notice::${GITHUB_REF_NAME} is older than ${newest}; latest stays put."
       exit 0
