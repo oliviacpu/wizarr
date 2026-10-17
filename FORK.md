@@ -6,6 +6,9 @@ in `LICENSE.md` are retained. This fork does not include the private Plus submod
 
 - **Base:** stable [`v2026.10.1`](https://github.com/wizarrrr/wizarr/releases/tag/v2026.10.1),
   commit `936143363897efd3ca68568fdf6fdd9a0d63f559`, released 2026-10-12.
+- **Preserved snapshot:** the initial upstream development tip remains on
+  `upstream-snapshot` at `89da0aebd3e99bfb455f83288b08f399b589e14f`.
+  `main` starts at the stable base above.
 - **Remotes:** `origin` is `https://github.com/oliviacpu/wizarr.git`;
   `upstream` is `https://github.com/wizarrrr/wizarr.git`.
 - **Updates:** fetch upstream tags, merge the chosen stable tag into an update
@@ -40,7 +43,11 @@ image or digest to select an immutable version.
 Inherited publishing, release, manifest, translation and notification jobs have
 an exact `github.repository == 'wizarrrr/wizarr'` guard. They retain their upstream
 source but cannot execute in this fork. Review new upstream workflows on updates.
-The fork workflow requires no upstream publishing credentials.
+The fork workflow requires no upstream publishing credentials. The eight
+inherited publishing/release/bot workflows are also disabled in the fork
+settings, including upstream CI that only publishes the `:dev` image. The
+upstream test, lint and translation-verification workflows remain enabled in
+settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
