@@ -214,7 +214,7 @@
     <div hx-get="/home"
          hx-target="#content"
          hx-swap="innerHTML"
-         hx-trigger="load[!{{ preload_hashes | tojson }}.includes(window.location.hash)]"
+         hx-trigger="load[!{{ preload_hashes | tojson | forceescape }}.includes(window.location.hash)]"
          style="display:none"></div>
     {% for page in preload_pages %}
       <div hx-get="/{{ page }}"
