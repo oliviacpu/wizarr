@@ -183,7 +183,13 @@ def test_request_review_and_bound_onboarding(
     admin.locator('[name="server_id"]').select_option(label="Example Plex")
     admin.get_by_role("checkbox", name="Movies").check()
     admin.screenshot(path=str(tmp_path / f"admin-{width}.png"), full_page=True)
-    admin.get_by_role("button", name="Approve selected access").click()
+    with admin.expect_response(
+        lambda response: (
+            response.request.method == "POST" and response.url.endswith("/approve")
+        )
+    ) as approval:
+        admin.get_by_role("button", name="Approve selected access").click()
+    assert approval.value.status == 302, approval.value.text()
     page.get_by_role("link", name="Refresh status").click()
     expect(page.get_by_role("heading", name="Request approved")).to_be_visible()
     page.screenshot(path=str(tmp_path / f"approved-{width}.png"), full_page=True)

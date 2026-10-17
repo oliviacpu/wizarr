@@ -54,6 +54,31 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Keep admin CSRF stable during parallel dashboard loads (2026-10-16)
+
+- **Problem:** an initial Home fragment can save an older session snapshot after
+  Requests creates the session's first CSRF token. The displayed decision form
+  then fails validation even though the administrator just opened it.
+- **Change:** initialize the CSRF token in the admin shell before its parallel
+  fragments load. CSRF checks remain required on every request decision.
+- **Tests:** a deterministic overlapping Home/Requests load reproduces the old
+  400 response and verifies successful approval after the fix. Browser tests
+  also wait for and assert the approval response before refreshing status.
+- **Upstream:** not sent.
+
+### Exclude runtime data from container images (2026-10-16)
+
+- **Problem:** running tests or a local instance creates `database/` with a
+  session signing secret and session files. Docker's source copy could include
+  those files in an image even though Git ignores them.
+- **Change:** exclude database/data/session directories, secrets files, database
+  files and logs from the container build context. Instances create their own
+  secrets in their persistent data directory.
+- **Checks:** build the linux/amd64 image with local runtime data present,
+  inspect the resulting image for excluded files, and start it with fresh
+  persistent storage to exercise migrations and health checks.
+- **Upstream:** not sent.
+
 ### Preserve companion provisioning after bound redemption (2026-10-16)
 
 - **Problem:** account-bound invitations bypassed the normal OAuth handler's
