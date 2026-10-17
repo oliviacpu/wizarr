@@ -54,6 +54,16 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Expire request invitations before migration downgrade (2026-10-16)
+
+- **Problem:** older Wizarr code cannot enforce the account binding after its
+  database column is removed.
+- **Change:** downgrade expires account-bound invitations and clears unlimited
+  redemption before dropping the binding. Ordinary invitations are preserved.
+- **Tests:** the disposable database round trip preserves an ordinary invite
+  and its server association, and invalidates a bound invitation on downgrade.
+- **Upstream:** not sent.
+
 ### Refuse request invitations in legacy form redemption (2026-10-16)
 
 - **Problem:** older media-specific forms and the multi-server password prompt

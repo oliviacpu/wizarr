@@ -37,6 +37,13 @@ def upgrade():
 
 
 def downgrade():
+    # Older code cannot enforce the account binding. Do not turn these into
+    # ordinary bearer invitations when their binding column is removed.
+    op.execute(
+        sa.text(
+            "UPDATE invitation SET used=1, unlimited=0, expires=CURRENT_TIMESTAMP WHERE plex_account_id IS NOT NULL"
+        )
+    )
     op.drop_table("access_request")
     with op.batch_alter_table("invitation") as batch_op:
         batch_op.drop_column("plex_account_id")

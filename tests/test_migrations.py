@@ -129,6 +129,11 @@ def test_access_requests_upgrade_and_downgrade_preserve_invitations(
                 ).scalar()
                 == 0
             )
+            connection.execute(
+                text(
+                    "INSERT INTO invitation (id, code, used, unlimited, created, plex_account_id) VALUES (2, 'BOUNDMIGRT', 0, 1, CURRENT_TIMESTAMP, '42')"
+                )
+            )
         downgrade(revision="20261011_ldap_user_sync_filter")
         with engine.begin() as connection:
             assert (
@@ -143,6 +148,14 @@ def test_access_requests_upgrade_and_downgrade_preserve_invitations(
                 ).scalar()
                 == 1
             )
+            assert connection.execute(
+                text(
+                    "SELECT used, unlimited, expires IS NOT NULL FROM invitation WHERE id=2"
+                )
+            ).one() == (1, 0, 1)
+            assert connection.execute(
+                text("SELECT used, expires FROM invitation WHERE id=1")
+            ).one() == (0, None)
         upgrade()
         with engine.begin() as connection:
             assert connection.execute(text("PRAGMA foreign_key_check")).all() == []

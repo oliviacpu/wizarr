@@ -12,6 +12,10 @@ Keep `/access-requests` and the other admin paths behind normal admin
 authentication. Public routes live under `/request-access`; an external login
 gateway must permit those paths without granting access to admin routes.
 
+Downgrading this migration expires request-bound invitations before removing
+their account binding. They cannot become ordinary redeemable invite codes in
+older Wizarr versions. Existing ordinary invitations remain unchanged.
+
 ## Request and decision
 
 The requester enters their Plex username or email and optionally identifies
