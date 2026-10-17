@@ -4,6 +4,7 @@ import structlog
 from flask import (
     Blueprint,
     Response,
+    abort,
     current_app,
     jsonify,
     redirect,
@@ -89,6 +90,11 @@ def favicon():
 @public_bp.route("/j/<code>")
 @limiter.limit("50 per minute")
 def invite(code):
+    bound = Invitation.query.filter(
+        db.func.lower(Invitation.code) == code.lower()
+    ).first()
+    if bound and bound.plex_account_id:
+        return redirect(url_for("access_requests.status"))
     from app.services.invitation_flow import InvitationFlowManager
 
     manager = InvitationFlowManager()
@@ -126,6 +132,11 @@ def process_invitation():
 
     manager = InvitationFlowManager()
     form_data = request.form.to_dict()
+    bound = Invitation.query.filter(
+        db.func.lower(Invitation.code) == form_data.get("code", "").lower()
+    ).first()
+    if bound and bound.plex_account_id:
+        abort(403, "Use the private request status page to redeem this invitation.")
     result = manager.process_invitation_submission(form_data)
     return result.to_flask_response()
 
@@ -157,6 +168,8 @@ def join():
         invitation = Invitation.query.filter(
             db.func.lower(Invitation.code) == code.lower()
         ).first()
+    if invitation and invitation.plex_account_id:
+        abort(403, "Use the private request status page to redeem this invitation.")
     valid, msg = (
         is_invite_valid(code) if code else (False, "No invitation code provided")
     )

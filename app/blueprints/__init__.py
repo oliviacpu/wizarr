@@ -1,5 +1,6 @@
 from app.activity.api.blueprint import activity_bp
 
+from .access_requests.routes import access_requests_bp
 from .admin.routes import admin_bp
 from .admin_accounts.routes import admin_accounts_bp
 from .api.api_routes import api_bp
@@ -27,6 +28,7 @@ from .wizard_admin.routes import wizard_admin_bp
 # They are kept registered for backward compatibility and admin/scan functions.
 
 all_blueprints = (
+    access_requests_bp,
     public_bp,
     wizard_bp,
     admin_bp,

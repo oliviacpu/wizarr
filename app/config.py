@@ -93,6 +93,7 @@ def get_or_create_secret(key, generator_func):
 
 
 class BaseConfig:
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
     # Flask
     SECRET_KEY = get_or_create_secret("SECRET_KEY", generate_secret_key)
     # Sessions

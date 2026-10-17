@@ -1,4 +1,9 @@
 # Wizarr
+
+This is a personal fork with opt-in public Plex access requests and manual
+approval. See [FORK.md](FORK.md) for the exact upstream base, patch notes and
+fork container builds, and [the request guide](docs/plex-access-requests.md).
+
 > 🚀 **Development Relaunched:** We're excited to announce that **Wizarr is back in active development**!
 <br></br>
 <p align="center">

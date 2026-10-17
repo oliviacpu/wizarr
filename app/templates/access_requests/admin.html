@@ -1,0 +1,105 @@
+<section class="max-w-5xl mx-auto p-4 space-y-6 text-gray-900 dark:text-white">
+  <h1 class="text-2xl font-semibold">{{ _("Access requests") }}</h1>
+  <form action="{{ url_for('access_requests.settings') }}"
+        method="post"
+        class="p-4 bg-white dark:bg-gray-800 rounded-lg space-y-3">
+    {{ form.hidden_tag() }}
+    <label class="flex gap-3 items-center">
+      <input type="checkbox"
+             name="enabled"
+             value="true"
+             {% if enabled %}checked{% endif %}>
+      {{ _("Accept public Plex access requests") }}
+    </label>
+    <p>{{ _("New requests grant no access until you approve and the requester signs in again.") }}</p>
+    <button type="submit" class="rounded-lg bg-primary text-white px-4 py-2">{{ _("Save") }}</button>
+    {% if enabled %}<a href="{{ url_for('access_requests.public_request') }}"
+   class="ml-3 text-primary underline">{{ _("Open public request page") }}</a>{% endif %}
+  </form>
+  {% for row in requests.items %}
+    <article class="p-5 rounded-lg bg-white dark:bg-gray-800 shadow-sm space-y-4">
+      <div class="flex flex-wrap justify-between gap-2">
+        <h2 class="text-lg font-semibold">{{ row.display_name or row.plex_username }}</h2>
+        <span>{{ row.status.replace('_', ' ') }}</span>
+      </div>
+      <dl class="space-y-1 break-words">
+        <div>
+          <dt class="inline font-medium">{{ _("Entered identifier") }}:</dt>
+          <dd class="inline">
+            {{ row.entered_identifier }}
+          </dd>
+        </div>
+        <div>
+          <dt class="inline font-medium">{{ _("Verified by Plex sign-in") }}:</dt>
+          <dd class="inline">
+            {{ row.plex_username }} · {{ row.plex_email }} · {{ _("Account ID") }} {{ row.plex_account_id }}
+          </dd>
+        </div>
+        <div>
+          <dt class="inline font-medium">{{ _("Submitted") }}:</dt>
+          <dd class="inline">
+            {{ row.created_at.strftime("%Y-%m-%d %H:%M") }} UTC
+          </dd>
+        </div>
+      </dl>
+      {% if row.status == "pending" %}
+        <form action="{{ url_for('access_requests.decide', request_id=row.id, action='approve') }}"
+              method="post"
+              class="space-y-4"
+              x-data="{ server: '' }">
+          {{ form.hidden_tag() }}
+          <label class="block">
+            {{ _("Plex server") }}
+            <select name="server_id"
+                    required
+                    x-model="server"
+                    class="block mt-2 w-full p-2 rounded-lg border bg-gray-50 dark:bg-gray-700">
+              <option value="">{{ _("Select a server") }}</option>
+              {% for server in servers %}<option value="{{ server.id }}">{{ server.name }}</option>{% endfor %}
+            </select>
+          </label>
+          {% for server in servers %}
+            <fieldset x-show="server === '{{ server.id }}'" class="space-y-2">
+              <legend class="mb-2 font-medium">{{ _("Libraries") }} · {{ server.name }}</legend>
+              {% for library in server.libraries if library.enabled %}
+                <label class="flex gap-3 items-center">
+                  <input type="checkbox"
+                         name="libraries"
+                         value="{{ library.id }}"
+                         :disabled="server !== '{{ server.id }}'">
+                  {{ library.name }}
+                </label>
+          {% else %}<p>{{ _("No enabled libraries. Scan this server in Settings first.") }}</p>{% endfor %}
+            </fieldset>
+          {% endfor %}
+          <button type="submit"
+                  class="rounded-lg bg-primary text-white px-4 py-2">{{ _("Approve selected access") }}</button>
+        </form>
+        <form action="{{ url_for('access_requests.decide', request_id=row.id, action='reject') }}"
+              method="post">
+          {{ form.hidden_tag() }}
+          <button type="submit" class="text-red-600 dark:text-red-400 underline">{{ _("Reject request") }}</button>
+        </form>
+      {% elif row.status in ["needs_review", "redeeming", "recovering"] %}
+        <p>{{ _("A Plex operation may have succeeded. Reconcile sharing before retrying. Recovery checks the account and exact libraries; it reuses this invitation.") }}</p>
+        <p>{{ _("Last checkpoint") }}: {{ row.redemption_stage or 'ready' }}</p>
+        <form action="{{ url_for('access_requests.decide', request_id=row.id, action='recover') }}"
+              method="post">
+          {{ form.hidden_tag() }}
+          <button type="submit"
+                  class="rounded-lg bg-primary text-white px-4 py-2">{{ _("Reconcile with Plex and allow retry") }}</button>
+        </form>
+      {% endif %}
+    </article>
+  {% else %}<p>{{ _("No access requests yet.") }}</p>{% endfor %}
+  <nav class="flex gap-4" aria-label="{{ _('Request pages') }}">
+    {% if requests.has_prev %}<a hx-get="{{ url_for('access_requests.admin', page=requests.prev_num) }}"
+   hx-target="#content"
+   class="text-primary underline"
+   href="{{ url_for('admin.dashboard') }}#access-requests">{{ _("Previous") }}</a>{% endif %}
+    {% if requests.has_next %}<a hx-get="{{ url_for('access_requests.admin', page=requests.next_num) }}"
+   hx-target="#content"
+   class="text-primary underline"
+   href="{{ url_for('admin.dashboard') }}#access-requests">{{ _("Next") }}</a>{% endif %}
+  </nav>
+</section>

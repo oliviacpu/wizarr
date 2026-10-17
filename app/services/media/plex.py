@@ -721,6 +721,8 @@ class PlexClient(MediaClient):
         allow_sync: bool,
         allow_channels: bool,
         allow_camera_upload: bool = False,
+        *,
+        redact_errors: bool = False,
     ):
         try:
             self.admin.inviteFriend(
@@ -732,6 +734,10 @@ class PlexClient(MediaClient):
                 allowCameraUpload=allow_camera_upload,
             )
         except Exception as e:
+            if redact_errors:
+                raise PlexInvitationError(
+                    "Plex sharing could not be confirmed."
+                ) from None
             # Extract human-readable error message and raise custom exception
             error_message = extract_plex_error_message(e)
             logging.error(f"Failed to invite friend {email}: {error_message}")
@@ -837,7 +843,9 @@ class PlexClient(MediaClient):
             allowCameraUpload=bool(form.get("allowCameraUpload")),
         )
 
-    def _get_all_library_global_ids(self) -> dict[str, int]:
+    def _get_all_library_global_ids(
+        self, *, redact_errors: bool = False
+    ) -> dict[str, int]:
         """Get mapping of all server libraries (name -> global ID).
 
         This fetches library information from the Plex server's own libraries endpoint,
@@ -883,6 +891,10 @@ class PlexClient(MediaClient):
             return library_map
 
         except Exception as e:
+            if redact_errors:
+                raise PlexInvitationError(
+                    "Plex libraries could not be verified."
+                ) from None
             logging.error(f"Failed to get library global IDs: {e}", exc_info=True)
             return {}
 
@@ -1664,6 +1676,18 @@ def _provision_companions(app, token: str, server_id: int) -> None:
 
 def handle_oauth_token(app, token: str, code: str) -> None:
     with app.app_context():
+        bound = Invitation.query.filter(
+            db.func.lower(Invitation.code) == code.lower()
+        ).first()
+        if bound and bound.plex_account_id:
+            from app.services.access_requests import (
+                bound_request,
+                redeem,
+                verified_account,
+            )
+
+            redeem(bound_request(bound), verified_account(token), token)
+            return
         account = MyPlexAccount(token=token)
         email = account.email
 
@@ -1791,9 +1815,20 @@ def _invite_user(email: str, code: str, _user_id: int, server: MediaServer) -> N
     try:
         if inv.plex_home:
             client.invite_home(email, libs, allow_sync, allow_tv, allow_camera_upload)
+        elif inv.plex_account_id:
+            client.invite_friend(
+                email,
+                libs,
+                allow_sync,
+                allow_tv,
+                allow_camera_upload,
+                redact_errors=True,
+            )
         else:
             client.invite_friend(email, libs, allow_sync, allow_tv, allow_camera_upload)
     except PlexInvitationError as e:
+        if inv.plex_account_id:
+            raise PlexInvitationError("Plex sharing could not be confirmed.") from None
         if "already sharing" in e.message.lower():
             # User already has a share — update libraries and permissions instead
             structlog.get_logger().info(
@@ -1811,12 +1846,15 @@ def _invite_user(email: str, code: str, _user_id: int, server: MediaServer) -> N
             # Re-raise PlexInvitationError to preserve the user-friendly message
             raise
     except Exception as e:
+        if inv.plex_account_id:
+            raise PlexInvitationError("Plex sharing could not be confirmed.") from None
         # Handle any other unexpected errors
         error_message = extract_plex_error_message(e)
         logging.error(f"Unexpected error inviting {email} to Plex: {error_message}")
         raise PlexInvitationError(error_message, e) from e
 
-    logging.info("Invited %s to Plex", email)
+    if not inv.plex_account_id:
+        logging.info("Invited %s to Plex", email)
 
     db.session.commit()
 
