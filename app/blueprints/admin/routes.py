@@ -16,6 +16,7 @@ from flask import (
 )
 from flask_babel import _
 from flask_login import login_required
+from flask_wtf.csrf import generate_csrf
 from markupsafe import escape
 from sqlalchemy.orm.attributes import set_committed_value
 
@@ -71,6 +72,8 @@ _PLACEHOLDER_CODES = ("None", "empty")
 @admin_bp.route("/admin")
 @login_required
 def dashboard():
+    # Persist CSRF before parallel HTMX partials can save older session snapshots.
+    generate_csrf()
     __version__ = os.getenv("APP_VERSION", "dev")
     update_available = check_update_available(__version__)
     sponsors = get_sponsors()

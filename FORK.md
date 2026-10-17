@@ -54,6 +54,18 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Keep admin CSRF stable during parallel dashboard loads (2026-10-16)
+
+- **Problem:** an initial Home fragment can save an older session snapshot after
+  Requests creates the session's first CSRF token. The displayed decision form
+  then fails validation even though the administrator just opened it.
+- **Change:** initialize the CSRF token in the admin shell before its parallel
+  fragments load. CSRF checks remain required on every request decision.
+- **Tests:** a deterministic overlapping Home/Requests load reproduces the old
+  400 response and verifies successful approval after the fix. Browser tests
+  also wait for and assert the approval response before refreshing status.
+- **Upstream:** not sent.
+
 ### Exclude runtime data from container images (2026-10-16)
 
 - **Problem:** running tests or a local instance creates `database/` with a

@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
-from threading import Barrier
+from threading import Barrier, Event
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -261,6 +261,51 @@ def test_rate_limit_active_even_when_upstream_limiter_disabled(client, setup_req
         assert submit(client).status_code == 200
     assert submit(client).status_code == 429
     assert AccessRequest.query.count() == 1
+
+
+def test_admin_approval_csrf_survives_overlapping_dashboard_request(
+    app, client, setup_requests, monkeypatch
+):
+    import re
+
+    submit(client)
+    row = AccessRequest.query.one()
+    admin_login(client)
+    app.config["WTF_CSRF_ENABLED"] = True
+    assert client.get("/admin").status_code == 200
+    other_tab = app.test_client()
+    cookie = client.get_cookie(app.config["SESSION_COOKIE_NAME"])
+    other_tab.set_cookie(cookie.key, cookie.value)
+    started, finish = Event(), Event()
+    original = app.view_functions["admin.home"]
+
+    def delayed_home():
+        response = original()
+        started.set()
+        assert finish.wait(timeout=10)
+        return response
+
+    monkeypatch.setitem(app.view_functions, "admin.home", delayed_home)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        stale = pool.submit(other_tab.get, "/home", headers={"HX-Request": "true"})
+        try:
+            assert started.wait(timeout=10)
+            page = client.get("/access-requests", headers={"HX-Request": "true"})
+            csrf = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', page.text)[1]
+        finally:
+            finish.set()
+        assert stale.result().status_code == 200
+
+    response = client.post(
+        f"/access-requests/{row.id}/approve",
+        data={
+            "csrf_token": csrf,
+            "server_id": setup_requests.server.id,
+            "libraries": setup_requests.library.id,
+        },
+    )
+    assert response.status_code == 302
+    assert row.status == "approved"
 
 
 def test_reject_grants_nothing_and_cannot_be_approved(client, setup_requests, plex):
