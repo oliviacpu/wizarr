@@ -218,8 +218,8 @@ def _matching_shares(client, account_id: str):
 def recover(request_id: int) -> None:
     """An admin reconciles an uncertain operation before allowing another attempt."""
     row = _get_request(request_id)
-    if row is None:
-        raise ValueError("Request not found.")
+    if row.status not in {"needs_review", "redeeming", "recovering"}:
+        raise RequestConflict("This request does not need provisioning recovery.")
     if row.status in {"redeeming", "recovering"} and row.updated_at > datetime.now(
         UTC
     ).replace(tzinfo=None) - timedelta(minutes=5):

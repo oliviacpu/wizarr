@@ -435,9 +435,12 @@ def test_failure_recovery_reuses_invitation(client, setup_requests, plex, stage)
     assert plex.client.invite_friend.call_count == (2 if stage == "sharing" else 1)
 
 
-def test_stale_in_progress_requires_reconciliation(client, setup_requests, plex):
+@pytest.mark.parametrize("status", ["redeeming", "recovering"])
+def test_stale_in_progress_requires_reconciliation(
+    client, setup_requests, plex, status
+):
     row = approved(client, setup_requests)
-    row.status = "redeeming"
+    row.status = status
     db.session.commit()
     with pytest.raises(service.RequestConflict, match="five minutes"):
         service.recover(row.id)
@@ -445,6 +448,62 @@ def test_stale_in_progress_requires_reconciliation(client, setup_requests, plex)
     db.session.commit()
     service.recover(row.id)
     assert row.status == "approved"
+    plex.client.invite_friend.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["pending", "rejected", "approved", "completed"])
+def test_recovery_refuses_states_without_uncertain_provisioning(
+    client, setup_requests, plex, status
+):
+    if status in {"pending", "rejected"}:
+        submit(client)
+        row = AccessRequest.query.one()
+        if status == "rejected":
+            service.reject(row.id)
+    else:
+        row = approved(client, setup_requests)
+        if status == "completed":
+            service.redeem(row, plex.account, "requester-secret")
+    updated_at, stage = row.updated_at, row.redemption_stage
+    invite_id, user_count = row.invitation_id, User.query.count()
+    plex.client.reset_mock()
+    admin_login(client)
+
+    response = client.post(f"/access-requests/{row.id}/recover")
+
+    assert response.status_code == 409
+    db.session.expire_all()
+    assert row.status == status and row.updated_at == updated_at
+    assert row.redemption_stage == stage and row.invitation_id == invite_id
+    assert User.query.count() == user_count
+    plex.client.admin.users.assert_not_called()
+    plex.client.admin.pendingInvites.assert_not_called()
+    plex.client.invite_friend.assert_not_called()
+
+
+def test_concurrent_recovery_has_one_winner(app, client, setup_requests, plex):
+    row = approved(client, setup_requests)
+    row.status = "needs_review"
+    db.session.commit()
+    request_id = row.id
+    barrier = Barrier(2)
+
+    def recover(_number):
+        with app.app_context():
+            loaded = db.session.get(AccessRequest, request_id)
+            assert loaded.status == "needs_review"
+            barrier.wait()
+            try:
+                service.recover(loaded.id)
+                return "recovered"
+            except service.RequestConflict:
+                return "conflict"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(recover, range(2))) == ["conflict", "recovered"]
+    db.session.expire_all()
+    assert row.status == "approved" and row.redemption_stage == "ready"
+    plex.client.admin.users.assert_called_once()
     plex.client.invite_friend.assert_not_called()
 
 

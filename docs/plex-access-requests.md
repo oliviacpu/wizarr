@@ -56,6 +56,8 @@ the same Wizarr invitation. A mismatched or unreadable share stays in review;
 correct its library selection in Plex and reconcile again. An interrupted
 `redeeming` or `recovering` operation must be at least five minutes old before
 an administrator can reconcile it.
+Recovery is refused for pending, rejected, approved and completed requests;
+a stale admin page cannot reopen a completed request.
 
 Do not edit a request invitation into an unlimited invitation, Plex Home invite,
 another server, broader libraries or extra permissions. Those changes fail

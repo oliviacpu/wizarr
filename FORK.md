@@ -54,6 +54,18 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Limit reconciliation to uncertain operations (2026-10-16)
+
+- **Problem:** a late recovery POST could reopen a completed request or change
+  a pending/rejected request into a provisioning error.
+- **Change:** recovery accepts only `needs_review` or an interrupted
+  `redeeming`/`recovering` operation at least five minutes old. The conditional
+  update still checks the observed status and timestamp against concurrent edits.
+- **Tests:** admin POSTs preserve pending, rejected, approved and completed
+  requests without Plex calls; both in-progress states enforce the five-minute
+  delay, and concurrent reconciliation has one winner.
+- **Upstream:** not sent.
+
 ### Refresh retained users during request redemption (2026-10-16)
 
 - **Problem:** a local user left behind by a removed Plex share or synchronization
