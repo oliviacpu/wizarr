@@ -317,6 +317,51 @@ def test_unconfirmed_account_can_retry_after_confirmation(app, browser, request_
     context.close()
 
 
+def test_submission_locks_steps_until_failure_then_allows_retry(browser, request_site):
+    context = browser.new_context()
+    page = context.new_page()
+    plex_sign_in(page, "test-requester-token")
+    submissions = []
+
+    def hold_submission(route):
+        if route.request.method == "POST":
+            submissions.append(route)
+        else:
+            route.continue_()
+
+    page.route(request_site.url + "/request-access", hold_submission)
+    page.goto(request_site.url + "/request-access")
+    page.get_by_role("button", name="I have an account", exact=True).click()
+    page.get_by_label("Plex email or username").fill("requester")
+    page.get_by_role("button", name="Sign in with Plex and submit").click()
+    page.get_by_role("link", name="Confirm Plex sign-in").click()
+    expect(page.get_by_role("alert")).to_contain_text("Completing Plex sign-in")
+    expect(
+        page.get_by_role("button", name="I need to create an account first")
+    ).to_be_disabled()
+    expect(page.get_by_role("button", name="Back", exact=True)).to_be_disabled()
+    expect(page.get_by_role("button", name="Cancel sign-in", exact=True)).to_be_hidden()
+    assert len(submissions) == 1
+    submissions[0].fulfill(
+        status=400,
+        content_type="application/json",
+        body=json.dumps({"error": "Please try again."}),
+    )
+    expect(page.get_by_role("alert")).to_contain_text("Please try again.")
+    expect(
+        page.get_by_role("button", name="I need to create an account first")
+    ).to_be_enabled()
+    expect(page.get_by_role("button", name="Back", exact=True)).to_be_enabled()
+    expect(
+        page.get_by_role("button", name="Sign in with Plex and submit")
+    ).to_be_enabled()
+    page.unroute(request_site.url + "/request-access", hold_submission)
+    page.get_by_role("button", name="Sign in with Plex and submit").click()
+    page.get_by_role("link", name="Confirm Plex sign-in").click()
+    expect(page.get_by_role("heading", name="Waiting for review")).to_be_visible()
+    context.close()
+
+
 def resume_sign_in(page, url, *, expired=False):
     page.goto(url + "/request-access")
     state = {

@@ -23,6 +23,9 @@
         for (const form of document.querySelectorAll("[data-oauth-mode]")) {
             form.querySelector('[type="submit"]').disabled = false;
         }
+        for (const button of document.querySelectorAll("[data-request-step]")) {
+            button.disabled = false;
+        }
     }
     for (const button of document.querySelectorAll("[data-request-step]")) {
         button.addEventListener("click", () => {
@@ -36,9 +39,10 @@
         errorBox.textContent = "";
         showStep("request-details");
     });
-    async function post(url, data) {
+    async function post(url, data, attempt = signInAttempt) {
         const response = await fetch(url, {method: "POST", body: data, credentials: "same-origin"});
         const result = await response.json();
+        if (attempt !== signInAttempt) return null;
         if (!response.ok) {
             errorBox.textContent = result.error || "Please refresh and try again.";
             return null;
@@ -90,9 +94,13 @@
                 if (token) {
                     sessionStorage.removeItem(stateKey);
                     if (cancelButton) cancelButton.hidden = true;
+                    for (const button of document.querySelectorAll("[data-request-step]")) {
+                        button.disabled = true;
+                    }
+                    errorBox.textContent = "Completing Plex sign-in…";
                     const data = new FormData(form);
                     data.set("oauth_token", token);
-                    const result = await post(form.action, data);
+                    const result = await post(form.action, data, attempt);
                     if (attempt !== signInAttempt) return;
                     clearSignIn();
                     if (result) location.replace(result.redirect);

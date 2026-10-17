@@ -34,6 +34,8 @@ An authenticated account that still needs email confirmation gets instructions
 to confirm in Plex and retry. The form preserves values when switching account
 steps and returning from sign-in, including after expiration or cancellation.
 **Cancel sign-in** discards that attempt; a late Plex response cannot submit it.
+Once verification finishes and the request is being sent, step navigation is
+temporarily disabled; a failed submission restores it for retry.
 Pending requests appear in **Requests**, with the entered value and verified
 Plex username, email and account ID shown separately.
 

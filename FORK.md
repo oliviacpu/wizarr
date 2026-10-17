@@ -77,7 +77,8 @@ settings; their repository guards prevent duplicate work on the fork PR.
   users continue to the request form. Form values survive switching steps,
   OAuth returns, expiry and cancellation. An authenticated unconfirmed account
   gets a safe confirmation prompt. Late results from cancelled sign-ins cannot
-  submit a request or replace the current error state.
+  submit a request or replace the current error state. Step navigation is locked
+  while the verified request is being submitted and restored after a failure.
 - **Tests:** keyboard focus and desktop/mobile signup flows, preserving fields,
   no early PIN/request, confirmation then retry, expired sign-in recovery and
   late token/error refusal after cancellation. Existing approval, account
