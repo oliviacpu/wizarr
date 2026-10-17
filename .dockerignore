@@ -25,6 +25,17 @@ Thumbs.db
 .buildHelper.txt
 
 # Test and development data
+data/
+database/
+instance/
+flask_session/
+**/secrets.json
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.log
 test-data/
 tests/
 .pytest_cache

@@ -54,6 +54,19 @@ settings; their repository guards prevent duplicate work on the fork PR.
 
 ## Changes
 
+### Exclude runtime data from container images (2026-10-16)
+
+- **Problem:** running tests or a local instance creates `database/` with a
+  session signing secret and session files. Docker's source copy could include
+  those files in an image even though Git ignores them.
+- **Change:** exclude database/data/session directories, secrets files, database
+  files and logs from the container build context. Instances create their own
+  secrets in their persistent data directory.
+- **Checks:** build the linux/amd64 image with local runtime data present,
+  inspect the resulting image for excluded files, and start it with fresh
+  persistent storage to exercise migrations and health checks.
+- **Upstream:** not sent.
+
 ### Preserve companion provisioning after bound redemption (2026-10-16)
 
 - **Problem:** account-bound invitations bypassed the normal OAuth handler's
