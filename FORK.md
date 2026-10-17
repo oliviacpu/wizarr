@@ -16,6 +16,32 @@ in `LICENSE.md` are retained. This fork does not include the private Plus submod
   Feature and fork-build changes are separate commits so the feature can be
   proposed upstream independently. No upstream PR is part of this change.
 
+## Images and Actions
+
+`.github/workflows/fork.yml` runs the locked Python and static builds, Ruff,
+template formatting, targeted type checks and the test suite, including Chromium
+browser tests and disposable SQLite migrations. Upstream's broad type check is
+advisory; the new service and routes are checked as a required step.
+
+Only a dated tag such as `oliviacpu-2026.10.16` (or `.2` for another release that
+day), whose commit is on this fork's `main`, publishes
+`ghcr.io/oliviacpu/wizarr:<tag>` for **linux/amd64** after those checks pass.
+Pushes to `main` and PRs test without publishing. Manual dispatch publishes only
+when run on a valid release tag. Pushing a release tag is a release operation.
+
+The image job is serialized across all tags. `scripts/fork-image.sh` checks the
+remote tag and existing registry image: an existing tag at the same source commit
+is reused, and a different revision or a registry error fails the job. Tagged
+images are never deliberately overwritten. After publishing, a fresh tag fetch
+must still identify this tag as the newest dated `oliviacpu-*` tag before `:latest`
+can move. An older build or rerun cannot move `:latest` backward. Deploy a dated
+image or digest to select an immutable version.
+
+Inherited publishing, release, manifest, translation and notification jobs have
+an exact `github.repository == 'wizarrrr/wizarr'` guard. They retain their upstream
+source but cannot execute in this fork. Review new upstream workflows on updates.
+The fork workflow requires no upstream publishing credentials.
+
 ## Changes
 
 ### Public Plex access requests with manual approval (2026-10-16)
@@ -66,3 +92,14 @@ in `LICENSE.md` are retained. This fork does not include the private Plus submod
 
 See [the operator guide](docs/plex-access-requests.md) for configuration,
 recovery and the remaining live Plex checks.
+
+### Fork-only tested container publishing (2026-10-16)
+
+- **Problem:** upstream Actions publish upstream builds, run bots and assume
+  upstream credentials; the fork needs a separate release path.
+- **Change:** guarded upstream jobs, dedicated tests-before-image workflow,
+  dated immutable tags, linux/amd64 builds and serialized newest-tag promotion.
+- **Tests:** `tests/test_fork_workflow.py` exercises the publishing script against
+  disposable local Git repositories and a simulated registry CLI. No registry
+  image, GitHub release tag or deployment is created by these tests.
+- **Upstream:** fork configuration only.

@@ -9,7 +9,7 @@ jobs:
   pot:
     runs-on: ubuntu-24.04
     # don’t run if the commit came from the Weblate bot
-    if: github.actor != 'weblate'
+    if: github.repository == 'wizarrrr/wizarr' && (github.actor != 'weblate')
     steps:
       - uses: actions/checkout@v7
 

@@ -17,6 +17,7 @@ env:
 jobs:
     # ──────────────────── Docker Stable Release ────────────────────
     stable-release:
+        if: github.repository == 'wizarrrr/wizarr'
         runs-on: ubuntu-24.04
         permissions:
             contents: read

@@ -22,7 +22,7 @@ jobs:
   github-releases-to-discord:
     name: Notify Discord
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'wizarrrr'
+    if: github.repository == 'wizarrrr/wizarr' && (github.repository_owner == 'wizarrrr')
 
     steps:
       - name: Send release notes to Discord
