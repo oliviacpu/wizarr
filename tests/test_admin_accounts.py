@@ -17,7 +17,7 @@ def test_admin_account_crud(app):
 
 
 def test_admin_login(client, app):
-    """POST /login authenticates an AdminAccount and redirects home."""
+    """POST /login authenticates an AdminAccount and opens the admin dashboard."""
     with app.app_context():
         acc = AdminAccount(username="bob")
         acc.set_password("Password1")
@@ -25,9 +25,8 @@ def test_admin_login(client, app):
         db.session.commit()
 
     resp = client.post("/login", data={"username": "bob", "password": "Password1"})
-    # Should redirect to / on success (302 Found)
     assert resp.status_code in {302, 303}
-    assert resp.headers["Location"].endswith("/")
+    assert resp.headers["Location"] == "/admin"
 
 
 def test_head_login_does_not_log_auth_fail(client, caplog):
